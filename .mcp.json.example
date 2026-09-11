@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "prologue-interviewer": {
+      "command": "npx",
+      "args": ["tsx", "/ABSOLUTE/PATH/TO/prologue-interviewer/mcp/server.ts"],
+      "env": {
+        "API_BASE": "http://localhost:8787"
+      }
+    }
+  }
+}

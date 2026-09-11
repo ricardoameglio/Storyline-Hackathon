@@ -1,0 +1,30 @@
+{
+  "name": "prologue-interviewer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An agentic interviewer worth talking to — Discovery Audits on autopilot, as an MCP tool for Claude.",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "mcp": "tsx mcp/server.ts",
+    "simulate": "tsx scripts/simulate.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
