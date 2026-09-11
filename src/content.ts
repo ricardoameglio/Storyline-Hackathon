@@ -70,6 +70,11 @@ const CONTENT_TOOL = {
         description:
           "One sentence: what this operator knows that the market does not see.",
       },
+      summary: {
+        type: "string",
+        description:
+          "Three or four plain sentences recapping what the conversation actually covered, written so the person interviewed would read it and think 'yes, that's what I said'. Their story in order, no analysis, no selling. This is the receipt for the ten minutes they gave you.",
+      },
       pullQuotes: {
         type: "array",
         description: "Three to five verbatim quotes, best first.",
@@ -108,7 +113,7 @@ const CONTENT_TOOL = {
           "A 60-90 second read: host intro, the clip to play (quoted verbatim with a cue), host outro.",
       },
     },
-    required: ["nail", "contextGap", "pullQuotes"],
+    required: ["nail", "contextGap", "summary", "pullQuotes"],
   },
 };
 
@@ -220,6 +225,7 @@ const FACTCHECK_TOOL = {
       },
       nail: { type: "string" },
       contextGap: { type: "string" },
+      summary: { type: "string" },
       pullQuotes: {
         type: "array",
         description:
@@ -246,11 +252,16 @@ const FACTCHECK_TOOL = {
 async function factCheck(
   transcript: string,
   draft: GeneratedContent,
+  spanish = false,
 ): Promise<GeneratedContent> {
   const msg = await anthropic.messages.create({
     model: EDITOR_MODEL,
     max_tokens: 5000,
-    system: FACTCHECKER,
+    system:
+      FACTCHECKER +
+      (spanish
+        ? `\n\nThe copy is in Spanish and must stay in Spanish — neutral Latin American, "tú", no "vos" or "vosotros". Anything you rewrite comes back in Spanish. Your "problem" and "fix" notes are for the editor and may be in English.`
+        : ""),
     tools: [FACTCHECK_TOOL],
     tool_choice: { type: "tool", name: "check" },
     messages: [
@@ -275,6 +286,7 @@ async function factCheck(
   for (const key of [
     "nail",
     "contextGap",
+    "summary",
     "linkedinPost",
     "instagramCaption",
     "blogDraft",
@@ -291,16 +303,23 @@ export async function generateContent(
   assignment: Assignment,
   interview: Interview,
 ): Promise<GeneratedContent> {
+  const who = (assignment.subjectName || "SUBJECT").toUpperCase();
   const transcript = interview.turns
-    .map((t) => `${t.speaker === "interviewer" ? "INTERVIEWER" : assignment.subjectName.toUpperCase()}: ${t.text}`)
+    .filter((t) => (t.phase ?? "interview") === "interview")
+    .map((t) => `${t.speaker === "interviewer" ? "INTERVIEWER" : who}: ${t.text}`)
     .join("\n\n");
 
   const wanted = assignment.deliverables.map((d) => LABELS[d]).filter(Boolean);
 
+  const languageRule =
+    assignment.language === "es"
+      ? `\n\nLANGUAGE — NOT OPTIONAL\nWrite every deliverable in Spanish. Neutral Latin American Spanish: "tú", never "vos" or "vosotros", no country-specific slang, no Iberian vocabulary. Quotes stay exactly as the person said them, in whatever language they said them. Field names stay in English; their contents are in Spanish.`
+      : "";
+
   const msg = await anthropic.messages.create({
     model: EDITOR_MODEL,
     max_tokens: 4000,
-    system: EDITOR,
+    system: EDITOR + languageRule,
     tools: [CONTENT_TOOL],
     tool_choice: { type: "tool", name: "deliver" },
     messages: [
@@ -308,10 +327,10 @@ export async function generateContent(
         role: "user",
         content: `ASSIGNMENT
 Subject: ${assignment.subjectName}${assignment.subjectRole ? `, ${assignment.subjectRole}` : ""}
-Company: ${assignment.company}
+${assignment.company ? `Company: ${assignment.company}` : "Company: not given — take it from the transcript, and do not invent a business name."}
 Angle: ${assignment.angle}
 
-Fill these fields: nail, contextGap, pullQuotes${
+Fill these fields: nail, contextGap, summary, pullQuotes${
           wanted.length ? `, ${wanted.filter((w) => w !== "pullQuotes").join(", ")}` : ""
         }. Leave every other field out.
 
@@ -325,7 +344,7 @@ ${transcript}`,
   if (!draft) throw new Error("The editor returned nothing usable.");
 
   try {
-    return await factCheck(transcript, draft);
+    return await factCheck(transcript, draft, assignment.language === "es");
   } catch (err) {
     console.error("[factcheck] failed, delivering the unchecked draft:", err);
     return draft;

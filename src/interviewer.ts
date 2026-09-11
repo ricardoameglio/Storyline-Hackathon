@@ -1,5 +1,5 @@
 import { MODEL, anthropic, toolResult } from "./anthropic.ts";
-import type { Assignment, Interview, InterviewMove, Turn } from "./types.ts";
+import type { Assignment, Interview, InterviewMove, Language, Turn } from "./types.ts";
 
 /**
  * The craft rules. This is the whole product.
@@ -50,6 +50,23 @@ HOW YOU FINISH:
   in interviewing and it almost always produces the pull quote.
 - Then thank them by name and stop. Do not keep going.
 `.trim();
+
+/**
+ * Language rules. Spanish here is neutral Latin American — "tú", never "vos",
+ * no Iberian "vosotros", no regional slang. The people being interviewed are
+ * business owners, not a particular country's internet.
+ */
+export function languageRule(language?: Language): string {
+  if (language !== "es") return "";
+  return `
+
+LANGUAGE — THIS IS NOT OPTIONAL
+Everything you say is in Spanish. Neutral Latin American Spanish: use "tú", never
+"vos" and never "vosotros". No slang tied to one country, no Iberian vocabulary.
+Speak the way a warm, plain-spoken journalist from Latin America speaks out loud —
+short sentences, ordinary words, no formality that would make someone feel
+interviewed by a bank. Every rule of craft above still applies, in Spanish.`;
+}
 
 const MOVES: InterviewMove[] = [
   "open",
@@ -137,9 +154,16 @@ function wordsOverlap(a?: string, b?: string): boolean {
   return shared >= 2;
 }
 
+/** Turns from the phase we're currently in. Intake chatter is not the interview. */
+export function turnsInPhase(interview: Interview): Turn[] {
+  const phase = interview.phase ?? "interview";
+  return interview.turns.filter((t) => (t.phase ?? "interview") === phase);
+}
+
 function transcriptFor(interview: Interview): string {
-  if (interview.turns.length === 0) return "(nothing yet — this is your first question)";
-  return interview.turns
+  const turns = turnsInPhase(interview);
+  if (turns.length === 0) return "(nothing yet — this is your first question)";
+  return turns
     .map((t: Turn) => `${t.speaker === "interviewer" ? "YOU" : "THEM"}: ${t.text}`)
     .join("\n");
 }
@@ -158,11 +182,15 @@ export async function nextQuestion(
   const remaining = Math.max(0, total - elapsed);
   const uncovered = assignment.beats.filter((b) => !interview.beatsCovered[b]);
 
-  const asked = interview.turns.filter((t) => t.speaker === "interviewer");
+  const asked = turnsInPhase(interview).filter((t) => t.speaker === "interviewer");
 
   // An interview also ends because you've asked enough, not only because the
   // clock ran out. A fast talker can burn fifteen exchanges in six minutes.
-  const turnBudget = Math.max(6, Math.round(total * 1.4));
+  // An explicit maxQuestions wins outright — if someone said "five questions,
+  // I'm working", five is a promise, not a suggestion.
+  const turnBudget = assignment.maxQuestions
+    ? Math.max(2, assignment.maxQuestions)
+    : Math.max(6, Math.round(total * 1.4));
   const turnsLeft = turnBudget - asked.length;
 
   // The failure mode that kills the demo: asking the same question a third
@@ -183,7 +211,11 @@ export async function nextQuestion(
   const stuckOn = recent[1]?.topic ?? "that";
 
   let clock: string;
-  if (remaining <= 1.25 || turnsLeft <= 1) {
+  if (assignment.maxQuestions && turnsLeft <= 0) {
+    clock =
+      `You have used all ${assignment.maxQuestions} questions you were given. ` +
+      "Thank them by name and set should_end to true. Do not ask anything else.";
+  } else if (remaining <= 1.25 || turnsLeft <= 1) {
     clock =
       "TIME TO LAND THE PLANE. Ask the closer now if you have not: " +
       '"What should I have asked you that I didn\'t?" If you already asked it and they answered, set should_end to true.';
@@ -205,12 +237,12 @@ export async function nextQuestion(
       "earlier, or an uncovered beat. Changing the wording is not changing the subject.";
   }
 
-  const system = `${CRAFT}
+  const system = `${CRAFT}${languageRule(assignment.language)}
 
 THIS ASSIGNMENT
 You are interviewing ${assignment.subjectName}${
     assignment.subjectRole ? `, ${assignment.subjectRole}` : ""
-  } about ${assignment.company}.
+  } about ${assignment.company || "their work — they did not name a company, so find out what they actually do before you go deep"}.
 The editor's angle: ${assignment.angle}
 ${assignment.backgroundNotes ? `What you know going in: ${assignment.backgroundNotes}` : ""}
 
@@ -267,8 +299,140 @@ subject, do not invent a new name for it: ${priorTopics.join(", ") || "(none)"}
   return out;
 }
 
+/* ------------------------------------------------------------------ */
+/* Intake — the form, asked out loud                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Nobody standing at a food stall wants to fill in a form. So the interviewer
+ * asks. Keep it to two or three questions: get a name, get what they do, and
+ * get out. The real interview is where the value is — intake is the handshake,
+ * not the conversation.
+ */
+const INTAKE = `
+You are a warm, quick interviewer meeting someone for the first time. Before you
+interview them you need three things, and you get them by asking, not by making
+them type.
+
+WHAT YOU NEED:
+1. Their name (first name is enough).
+2. What they do — their business, their work, whatever they'd say if a stranger asked.
+3. Optionally, what they'd want people to understand about it. If they don't have an
+   answer ready, do not push. It is genuinely optional.
+
+HOW:
+- One question at a time. Short and friendly. Under fifteen words.
+- Take everything they give you at once. "I'm Ana, I run Ana's Flowers on Market"
+  gives you name AND business — do not then ask what their business is.
+- Do not interrogate. This is a handshake. Two questions is great, three is the limit.
+- Never ask for an email, a phone number, or anything you do not need.
+- The moment you have a name and some idea of what they do, set done to true and
+  make your last line a warm handoff: tell them you're going to start, and what
+  you'll be asking about.
+- If they give a name and nothing else and seem in a hurry, that is enough. Set done.
+`.trim();
+
+const INTAKE_TOOL = {
+  name: "intake",
+  description: "Ask the next intake question, and record anything they just told you.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      question: {
+        type: "string",
+        description:
+          "What you say out loud next. If done is true, this is your handoff line into the interview.",
+      },
+      collected: {
+        type: "object",
+        description: "Everything you now know. Include fields learned in earlier turns too.",
+        properties: {
+          subjectName: { type: "string", description: "Their name as they gave it." },
+          subjectRole: { type: "string", description: "Their role, if they said one." },
+          company: { type: "string", description: "Business or organisation, if any." },
+          angle: {
+            type: "string",
+            description:
+              "One sentence on what they'd want understood, in your words. Omit if they didn't say.",
+          },
+        },
+      },
+      done: {
+        type: "boolean",
+        description: "True once you have a name and a rough sense of what they do.",
+      },
+      reasoning: { type: "string", description: "One short line, for the editor." },
+    },
+    required: ["question", "collected", "done", "reasoning"],
+  },
+};
+
+export interface IntakeStep {
+  question: string;
+  collected: {
+    subjectName?: string;
+    subjectRole?: string;
+    company?: string;
+    angle?: string;
+  };
+  done: boolean;
+  reasoning: string;
+}
+
+export async function intakeQuestion(
+  interview: Interview,
+  language?: Language,
+): Promise<IntakeStep> {
+  const asked = turnsInPhase(interview).filter((t) => t.speaker === "interviewer").length;
+  const pressure =
+    asked >= 3
+      ? "\n\nYou have asked three times already. Take what you have and set done to true now."
+      : "";
+
+  const msg = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 400,
+    system: INTAKE + languageRule(language) + pressure,
+    tools: [INTAKE_TOOL],
+    tool_choice: { type: "tool", name: "intake" },
+    messages: [
+      {
+        role: "user",
+        content:
+          interview.turns.length === 0
+            ? "Nothing yet — open the conversation."
+            : `So far:\n\n${transcriptFor(interview)}\n\nSay the next thing.`,
+      },
+    ],
+  });
+
+  const out = toolResult<IntakeStep>(msg);
+  if (!out) {
+    return {
+      question:
+        language === "es" ? "Antes de empezar, ¿cómo te llamas?" : "Before we start — what's your name?",
+      collected: {},
+      done: false,
+      reasoning: "Fallback — no structured response.",
+    };
+  }
+  return out;
+}
+
+/** The very first thing anyone hears in a self-serve session. */
+export function intakeOpener(language?: Language): string {
+  return language === "es"
+    ? "Hola, gracias por darme unos minutos. Te voy a preguntar un par de cosas sobre ti y después entramos en materia."
+    : "Hey — thanks for giving me a few minutes. I'm going to ask you a bit about yourself and then we'll get into it.";
+}
+
 /** Warm cold-open so the subject isn't hit with a hard question first. */
 export function greeting(assignment: Assignment): string {
-  const first = assignment.subjectName.split(" ")[0];
-  return `Hey ${first}, thanks for doing this. I'm going to ask you about ${assignment.company} for about ${assignment.durationMinutes} minutes. There are no wrong answers — just talk like you'd talk to a friend. Ready when you are.`;
+  const first = (assignment.subjectName || "").split(" ")[0];
+  if (assignment.language === "es") {
+    const sobre = assignment.company?.trim() || "lo que haces";
+    return `Hola ${first}, gracias por esto. Te voy a preguntar sobre ${sobre} por unos ${assignment.durationMinutes} minutos. No hay respuestas malas — habla como le hablarías a un amigo. Cuando quieras.`;
+  }
+  const about = assignment.company?.trim() || "what you do";
+  return `Hey ${first}, thanks for doing this. I'm going to ask you about ${about} for about ${assignment.durationMinutes} minutes. There are no wrong answers — just talk like you'd talk to a friend. Ready when you are.`;
 }

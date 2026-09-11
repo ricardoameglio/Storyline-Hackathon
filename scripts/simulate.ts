@@ -70,6 +70,7 @@ await post(`/api/interviews/${interview.id}/end`);
 
 rule("COPY");
 const c = await post(`/api/interviews/${interview.id}/content`);
+if (c.summary) console.log(`SUMMARY\n${c.summary}\n`);
 console.log(`CONTEXT GAP\n${c.contextGap}\n`);
 console.log(`THE NAIL\n${c.nail}\n`);
 for (const p of c.pullQuotes ?? []) console.log(`"${p.quote}"\n  — ${p.why}\n`);

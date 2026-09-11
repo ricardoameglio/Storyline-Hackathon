@@ -22,6 +22,10 @@ export interface Assignment {
   deliverables: Deliverable[];
   /** Minutes. Default 10. */
   durationMinutes: number;
+  /** Hard ceiling on questions. For people who say "I've got five minutes". */
+  maxQuestions?: number;
+  /** Interview and deliverables run in this language. Default English. */
+  language?: Language;
   /** Anything the interviewer should know going in. */
   backgroundNotes?: string;
 }
@@ -40,6 +44,8 @@ export interface Turn {
   /** Why the interviewer said what it said — surfaced in the UI, and it sells the demo. */
   reasoning?: string;
   move?: InterviewMove;
+  /** Intake turns are kept for the record but stay out of the interview transcript. */
+  phase?: "intake" | "interview";
 }
 
 export type InterviewMove =
@@ -52,10 +58,24 @@ export type InterviewMove =
 
 export type InterviewStatus = "waiting" | "live" | "finished";
 
+/** How the subject answers. Not everyone wants to talk out loud in a food hall. */
+export type InterviewMode = "voice" | "text";
+
+/** The language the whole thing runs in — questions, voice, and the copy. */
+export type Language = "en" | "es";
+
+/**
+ * "intake" is the interviewer asking who you are before it interviews you —
+ * the form, but conversational. It ends as soon as it has a name.
+ */
+export type InterviewPhase = "intake" | "interview";
+
 export interface Interview {
   id: string;
   assignmentId: string;
   status: InterviewStatus;
+  mode?: InterviewMode;
+  phase?: InterviewPhase;
   startedAt?: number;
   endedAt?: number;
   turns: Turn[];
@@ -76,8 +96,12 @@ export interface Correction {
 }
 
 export interface GeneratedContent {
+  /** Set when writing failed, so the room can say so instead of showing nothing. */
+  error?: string;
   /** Unsupported claims caught and fixed before delivery. */
   corrections?: Correction[];
+  /** Plain recap of what the conversation actually covered. */
+  summary?: string;
   nail?: string;
   contextGap?: string;
   pullQuotes?: { quote: string; why: string }[];
