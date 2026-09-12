@@ -7,7 +7,10 @@ export type Deliverable =
   | "x_thread";
 
 /** What an editor hands the interviewer before it goes out. */
+export type InterviewType = "career" | "founder" | "personal" | "expert";
+
 export interface Assignment {
+  interviewType?: InterviewType;
   id: string;
   createdAt: number;
   /** Who we're talking to. */
@@ -71,6 +74,8 @@ export type Language = "en" | "es";
 export type InterviewPhase = "intake" | "interview";
 
 export interface Interview {
+  /** The final invitation has been delivered; the next answer gets a thank-you. */
+  closingQuestionAsked?: boolean;
   id: string;
   assignmentId: string;
   status: InterviewStatus;

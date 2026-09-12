@@ -196,7 +196,9 @@ if (OPERATOR) el.logBox.hidden = false;
       el.introHint.textContent = T.introIntake(mins);
     } else {
       const first = (assignment?.subjectName || "").split(" ")[0];
-      const about = assignment?.company?.trim() || T.aboutFallback;
+      const about = assignment?.interviewType === "personal"
+        ? (language === "es" ? "tu historia" : "your story")
+        : assignment?.company?.trim() || T.aboutFallback;
       el.greeting.textContent = T.ready(first);
       el.introHint.textContent = T.introKnown(mins, about);
     }
@@ -404,6 +406,7 @@ el.start.onclick = async () => {
     const r = await fetch(`/api/interviews/${interviewId}/start`, { method: "POST" });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Could not start.");
+    startedAt = data.interview?.startedAt ?? startedAt;
     if (data.assignment) assignment = data.assignment;
     phase = data.interview?.phase || phase;
 
