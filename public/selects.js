@@ -79,8 +79,9 @@
         const goUp = below < Math.min(menu.scrollHeight, 240) && above > below;
         menu.style.width = `${Math.min(rect.width, width - 16)}px`;
         menu.style.left = `${Math.max(left + 8, Math.min(rect.left, left + width - menu.offsetWidth - 8))}px`;
-        menu.style.maxHeight = `${Math.max(44, Math.min(280, goUp ? above : below))}px`;
-        menu.style.top = `${goUp ? rect.top - menu.offsetHeight - 6 : rect.bottom + 6}px`;
+        menu.style.maxHeight = `${Math.max(0, Math.min(height - 16, 280, Math.max(44, goUp ? above : below)))}px`;
+        const preferredTop = goUp ? rect.top - menu.offsetHeight - 6 : rect.bottom + 6;
+        menu.style.top = `${Math.max(top + 8, Math.min(preferredTop, top + height - menu.offsetHeight - 8))}px`;
       }
       function highlight(index) {
         active = index;
@@ -149,6 +150,7 @@
       window.addEventListener("resize", position);
       window.addEventListener("scroll", position, true);
       window.visualViewport?.addEventListener("resize", position);
+      window.visualViewport?.addEventListener("scroll", position);
       refresh.push(sync);
       sync();
     }

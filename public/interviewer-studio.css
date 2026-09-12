@@ -18,7 +18,9 @@ em { color: var(--accent); font-weight: 400; }
 .page-shell { max-width: 1264px; margin: auto; padding: 0 48px; }
 .masthead { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 23px 0; border-bottom: 1px solid var(--line); }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 28px/1 var(--serif); letter-spacing: -1px; }
-.brand-icon { font: italic 23px/1 var(--serif); border: 1px solid var(--accent); width: 29px; height: 29px; border-radius: 50%; display: grid; place-items: center; color: var(--accent); }
+.brand-logo { position: relative; display: block; width: 1em; height: 1em; flex: 0 0 1em; overflow: hidden; }
+/* Crop the supplied image's transparent margin without resampling the logo. */
+.brand-logo img { position: absolute; display: block; width: 142.5%; height: auto; max-width: none; left: -21.02%; top: -19.2%; }
 .brand-divider { width: 1px; height: 19px; background: var(--line); margin: 0 7px; }
 .product-label { font: 10px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: .14em; color: var(--muted); }
 .masthead-note { font-size: 9px; letter-spacing: .16em; color: var(--muted); }

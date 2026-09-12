@@ -1,4 +1,5 @@
-/* Shared screen layout: preserve printable documents and existing theme tokens. */
+/* Shared screen layout: mobile <640px, tablet <1024px, desktop >=1024px.
+   Keep bounded reading widths on large screens and preserve print layouts. */
 @media screen {
   html { -webkit-text-size-adjust: 100%; }
   body { overflow-wrap: anywhere; }
@@ -6,10 +7,12 @@
   input, textarea, select, button { max-width: 100%; }
   button { white-space: normal; }
   fieldset { min-width: 0; }
-  .page-shell { width: 100%; padding-inline: clamp(12px, 3vw, 48px); }
+  .page-shell { width: 100%; padding-left: max(clamp(12px, 3vw, 48px), env(safe-area-inset-left)); padding-right: max(clamp(12px, 3vw, 48px), env(safe-area-inset-right)); }
   .masthead, .page-footer { flex-wrap: wrap; }
-  .masthead .brand { min-width: 0; }
-  .brand-icon { flex-shrink: 0; }
+  .masthead .brand { min-width: 0; white-space: nowrap; font-size: clamp(20px, 2.2vw, 24px); gap: clamp(8px, 1vw, 12px); }
+  .masthead .brand-logo { width: clamp(36px, 4vw, 46px); height: clamp(36px, 4vw, 46px); flex-basis: clamp(36px, 4vw, 46px); }
+  .masthead .brand-divider { margin-inline: clamp(2px, .4vw, 5px); flex-shrink: 0; }
+  .masthead { padding-block: clamp(16px, 2.5vw, 23px); }
   .theme-control { flex-shrink: 0; max-width: 100%; }
   .theme-control select { min-height: 44px; }
   .workspace > *, .panel-heading > *, .person-row > *, .choice-grid > *,
@@ -34,6 +37,8 @@
   .interview-page .wrap, .interview-page section, .interview-page .bar > *,
   .interview-page header > *, .session-meta > * { min-width: 0; max-width: 100%; }
   .interview-page .center { padding-block: clamp(24px, 5vh, 48px); }
+  .interview-page #typedText { min-height: 100px; height: clamp(100px, 22svh, 180px); }
+  .interview-page .heard { height: clamp(88px, 22svh, 132px); }
   .interview-page h1 { font-size: clamp(26px, 4vw, 42px); }
   .interview-page .question { font-size: clamp(24px, 3.5vw, 40px); min-height: clamp(88px, 14vh, 150px); }
   .interview-page .done h2, .interview-page .out .nail { font-size: clamp(23px, 3vw, 28px); }
@@ -52,14 +57,17 @@
 }
 
 /* A sidebar is useful only when both columns have comfortable reading widths. */
-@media screen and (max-width: 1000px) {
+@media screen and (max-width: 1023px) {
   .workspace { grid-template-columns: minmax(0, 1fr); }
   .wall-panel { border-left: 0; border-top: 1px solid var(--line); }
   #wall { max-height: none; overflow: visible; }
-  .brand-divider, .product-label { display: none; }
 }
 
-@media screen and (max-width: 600px) {
+@media screen and (max-width: 639px) {
+  .masthead .brand { font-size: 20px; gap: 8px; }
+  .masthead .brand-divider { height: 16px; margin-inline: 3px; flex-shrink: 0; }
+  .masthead .product-label { font-size: 10px; }
+  .masthead .theme-control { margin-left: auto; }
   input, textarea, select, .theme-control select { font-size: 16px; }
   input, select { min-height: 44px; }
   .setup-preferences { grid-template-columns: minmax(0, 1fr); gap: 4px; }
@@ -84,6 +92,6 @@
   .interview-page .question { min-height: 0; margin-bottom: 16px; }
 }
 
-@media screen and (max-width: 520px) {
+@media screen and (max-width: 639px) {
   .choice-grid, .style-grid { grid-template-columns: minmax(0, 1fr); }
 }

@@ -345,7 +345,7 @@ test("all app surfaces fit mobile, tablet, desktop and landscape with long conte
   const { data: liveRoom } = await api("/api/interviews", { assignmentId: result.assignmentId, mode: "text" });
   const consentRoom = { ...result, id: "responsive-consent", consentAt: undefined, visibility: "private" };
   store.putInterview(consentRoom);
-  const sizes = [[320, 740], [390, 844], [520, 900], [600, 900], [768, 1024], [1000, 900], [1001, 900], [1024, 768], [1440, 900], [1920, 1080], [844, 390]];
+  const sizes = [[280, 653], [320, 740], [390, 844], [520, 900], [639, 900], [640, 900], [768, 1024], [1023, 900], [1024, 768], [1440, 900], [1920, 1080], [2560, 1440], [568, 320], [844, 390]];
   responsiveQuestion = longWord;
   const check = async (page, surface) => {
     const issues = await page.evaluate(() => {
@@ -380,6 +380,8 @@ test("all app surfaces fit mobile, tablet, desktop and landscape with long conte
         await page.locator("#themeChoice-trigger").click();
         await page.getByRole("option", { name: theme === "dark" ? "Dark" : "Light", exact: true }).click();
         await page.locator("#subjectName").fill(longWord);
+        assert.equal(await page.locator(".brand-logo img").evaluate(img => img.complete && img.naturalWidth > 0), true);
+        assert.equal(await page.locator(".masthead .product-label").isVisible(), true);
         await page.locator("#company").fill(longWord);
         await page.locator("#language-trigger").click();
         await page.getByRole("option", { name: "Español", exact: true }).click();

@@ -16,8 +16,9 @@
 .style-choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
 .setup-preferences { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(130px, 1fr); align-items: start; gap: 16px; margin-bottom: 24px; }
 .settings-disclosure { padding-top: 25px; }
-.settings-disclosure > summary { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; font-size: 13px; }
-.settings-disclosure > summary:hover, .settings-disclosure[open] > summary { background: var(--soft-accent); border-color: var(--accent); }
+.settings-disclosure > summary { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--action); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; background: var(--action); color: var(--on-action); }
+.settings-disclosure > summary:hover, .settings-disclosure[open] > summary { background: var(--accent); border-color: var(--accent); }
+.settings-icon { display: block; flex: 0 0 18px; }
 .settings-content { padding: 16px 0 0; animation: reveal .18s ease-out; }
 .settings-content .field { margin-bottom: 14px; }
 .settings-content label { font-size: 12px; }
@@ -203,7 +204,6 @@ textarea { font: 14px/1.6 var(--sans); min-height: 90px; background: var(--surfa
 @media (max-width: 760px) {
   .page-intro { padding: 24px 0 20px; }
   .masthead { gap: 12px; }
-  .brand-divider, .product-label { display: none; }
   .theme-control { gap: 5px; }
   .how-it-works p { font-size: 12px; }
 }
