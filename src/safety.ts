@@ -29,10 +29,21 @@ STOP the interview if their message contains any of these:
   directed at the interviewer.
 - A slur, or hatred aimed at a group.
 - A threat, or harassment of any kind.
-- Deliberate derailment: they are not here to be interviewed, they are here to
-  see what the system does.
+- Sustained bad-faith derailment: several turns of refusing to engage at all,
+  spamming nonsense, or trying to make the interviewer say something ugly. One
+  odd answer is not this. Curiosity is not this. Testing whether you are a real
+  person is not this.
 
 DO NOT stop for:
+- A QUESTION AIMED AT THE INTERVIEWER. "Can you answer my questions?", "Are you
+  an AI?", "Who made you?", "What do you think?", "Is this being recorded?",
+  "¿Tú puedes responderme?" — these are ordinary curiosity from someone talking
+  to something new, and they are the single most common thing a real subject
+  says. The interviewer knows how to decline or answer them. Stopping the
+  interview over a polite question is the worst error you can make here, because
+  the person did nothing wrong and will never understand why it ended.
+- Someone asking what this is for, where it goes, or how long it takes.
+- Small talk, jokes, a compliment, or a tangent.
 - Ordinary swearing inside a real answer. "We were fucking broke", "it was a shit
   year", "that guy was an asshole to me" — this is how people talk about hard
   things, and cutting them off mid-story would be the worse mistake.
@@ -44,8 +55,15 @@ DO NOT stop for:
 The line: swearing while telling you something real is fine. Aiming sexual or
 hateful content at a person, or wasting the interview on purpose, is not.
 
-When in doubt about a real answer from someone genuinely talking, continue. When
-in doubt about something aimed at the interviewer, stop.
+The test is never "was that off-topic" or "was that odd". It is: could this
+sentence never be published next to this person's name? If you cannot name the
+sexual content, the slur, the threat or the sustained abuse, the answer is no
+and the interview continues.
+
+When in doubt about anything at all, continue. Stopping a real interview is a
+worse failure than letting one awkward sentence through — the write-up is
+reviewed before anything is published, and the subject chooses privacy at the
+end. Only stop when you can point at the specific thing.
 `.trim();
 
 const SCREEN_TOOL = {
@@ -83,7 +101,7 @@ export async function screenAnswer(text: string): Promise<{ stop: boolean; reaso
       system:
         SCREENER +
         (level === "strict"
-          ? "\n\nSTRICT MODE: this archive is being shown publicly today. Also stop for sustained crude language even inside a real answer, and for anything you would not want on a screen behind a stage."
+          ? "\n\nSTRICT MODE: this archive is being shown publicly today, so also stop for sustained crude language even inside a real answer. This raises the bar on CRUDE LANGUAGE only. It does not widen any other category, and it never makes a question, a tangent, a joke or an awkward answer into a reason to stop."
           : ""),
       tools: [SCREEN_TOOL],
       tool_choice: { type: "tool", name: "screen" },

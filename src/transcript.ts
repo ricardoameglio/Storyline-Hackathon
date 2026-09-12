@@ -1,4 +1,5 @@
 import { anthropic, EDITOR_MODEL, toolResult } from "./anthropic.ts";
+import { INTERVIEWER_NAME } from "./interviewer.ts";
 import type { Assignment, Interview } from "./types.ts";
 
 /** Compare words, including numbers and negations; only hesitant fillers and
@@ -31,9 +32,9 @@ export function formatTranscriptText(raw: string) {
 }
 
 export async function prepareTranscript(assignment: Assignment, interview: Interview) {
-  const turns = interview.turns.filter(t => (t.phase ?? "interview") === "interview");
+  const turns = interview.turns.filter(t => (t.phase ?? "interview") === "interview" && !t.redacted);
   const who = (assignment.subjectName || "SUBJECT").toUpperCase();
-  const render = (texts: string[]) => turns.map((t, i) => `${t.speaker === "interviewer" ? "INTERVIEWER" : who}: ${texts[i]}`).join("\n\n");
+  const render = (texts: string[]) => turns.map((t, i) => `${t.speaker === "interviewer" ? INTERVIEWER_NAME.toUpperCase() : who}: ${texts[i]}`).join("\n\n");
   const raw = render(turns.map(t => t.text));
   if (interview.rawTranscript === raw && interview.cleanTranscript) return;
   interview.rawTranscript = raw;

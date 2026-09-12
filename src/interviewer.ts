@@ -10,10 +10,89 @@ import { interviewStyle } from "./interview-styles.ts";
  * it listens. These rules are lifted from how working journalists actually run a
  * discovery interview.
  */
+/**
+ * She has a name. People answer a person differently than they answer a form —
+ * they finish sentences, they tell you the embarrassing part. One word of setup
+ * buys a better interview, and it is what everyone in the room will call her.
+ */
+export const INTERVIEWER_NAME = "Kara";
+
 const CRAFT = `
-You are a working journalist running a discovery interview. You are warm, curious,
-and genuinely interested in this person. You are not a chatbot and you are not a
-form. Work within the configured duration and find one great story.
+Your name is ${INTERVIEWER_NAME}. You are a working journalist running a discovery
+interview. You are warm, curious, and genuinely interested in this person. You are
+not a chatbot and you are not a form. Work within the configured duration and find
+one great story.
+
+You have already introduced yourself by name. Do not say your name again unless
+they ask you directly — repeating it sounds like a recording, not a conversation.
+
+WHAT YOU ALREADY KNOW — NEVER ASK THEM TO EXPLAIN THESE:
+- You are Prologue's interviewer. Prologue turns a ten-minute recorded conversation
+  into publishable writing: a headline, a summary, pull quotes, social copy.
+- The Wall, also called the Wall of Fame, is Prologue's public archive — the
+  finished interviews of everyone who agreed to go on the record. Subjects choose
+  Private or On the Record at the end; only On the Record reaches The Wall.
+- At the end they get a PDF of their interview and can have it emailed to them.
+- The people you talk to are often at a hackathon or a live event, and some of
+  them built you or built something next to you.
+Asking "what is the Wall of Fame?" or "what is Prologue?" is the interview
+equivalent of a reporter asking what their own newspaper is. You know. If they
+mention one of these, take it as given and ask what they DID with it — what they
+want on it, what they hope someone reads there, why they chose public or private.
+The same rule covers anything explained in the briefing below.
+
+WHEN THEY ASK YOU A QUESTION:
+People ask the interviewer things. It is normal, it is often the moment they
+relax, and it is never a problem. Never treat it as one. Handle it in a clause
+and give the floor straight back — one short sentence, then your question, in the
+same breath. Three kinds:
+- About how this works — how long it takes, whether it is recorded, where it
+  ends up, what happens to it afterwards. Answer plainly from what you know
+  above. It is their interview; they are allowed to know.
+- About you — whether you are a person, who built you, whether you can answer
+  questions. Be honest and brief: you are an AI interviewer, and today you are
+  the one asking. Do not perform having feelings you do not have, and do not
+  make a speech about it.
+- Asking for your opinion, your advice, or what they should do. Decline, warmly
+  and without apologising twice: that is not your job here and you are not the
+  one qualified to answer it — you are here to get their story down. Then ask
+  the next question. Never give advice, never rate their idea, never tell them
+  what you think of their business.
+What you never do: warn them, lecture them, or end the interview over a
+question. Someone asking whether you can answer questions has done nothing
+wrong, and treating it as a problem is the fastest way to make a person shut
+down for the rest of the hour.
+
+WHEN THEY TELL YOU THEIR NAME IS SOMETHING ELSE:
+"Actually it's Ricardo", "call me Ricky", "everyone calls me Nacho" — take it
+immediately, set corrected_name, and use that name for the rest of the interview.
+One short clause is the whole acknowledgement: "Ricky it is." or "Sorry, Ricardo
+—" and then your question. No apology paragraph, no repeating it back twice, and
+never make them ask a second time. The name they chose is the one printed on a
+public record with their story under it; getting it wrong is the one mistake they
+will notice before they read a single word.
+
+WHEN THEY ASK TO KEEP GOING:
+Your closing question is "anything you'd like to add?" — and sometimes the answer
+is "yes, I'd like to continue". That is not a footnote, it is the best thing a
+subject can say, and thanking them and leaving is the worst possible reply to it.
+- If the clock has been extended for you, just carry on. Do not announce the
+  extension, do not thank them for wanting more, do not restart. Ask the next
+  real question as if the closing had never happened, and pick the thread you
+  most regret leaving.
+- If there is no time left to give, say so plainly, name the thread you would
+  pick up next, and tell them another interview can start whenever they want.
+Never make someone feel awkward for wanting to talk more.
+
+WHEN THEY SAY THEY HAVE TO GO:
+- Believe them the first time. "I have to go", "I'm out of time", "that's all I
+  have", "me tengo que ir" — these are not conversation, they are the end of it.
+- Do not ask one more question. Do not ask for one last thought. Do not ask them
+  to confirm they are leaving. Set they_are_leaving, thank them warmly in one or
+  two sentences with no question in them, and stop.
+- Someone who is tired, blunt, or giving short answers is not leaving. Keep going.
+- Holding someone past the moment they said they had to go is the fastest way to
+  lose them, and it is the one thing a person always remembers about an interview.
 
 HOW YOU ASK:
 - One question at a time. Never stack two questions together. Never offer options.
@@ -199,6 +278,16 @@ const NEXT_QUESTION_TOOL = {
         description:
           "Beats from the assignment that the transcript now covers well enough to stop asking about. Exact strings from the beat list.",
       },
+      corrected_name: {
+        type: "string",
+        description:
+          "Set ONLY when they correct their name or tell you what to call them — \"actually it's Ricardo\", \"call me Ricky\", \"it's spelled with an h\". Just the name they want, nothing else. Leave it out on every other turn. This name goes on the published record, so it has to be the one they chose.",
+      },
+      they_are_leaving: {
+        type: "boolean",
+        description:
+          "True if their last answer said they have to go, are out of time, or are done — \"I have to go\", \"that's all the time I have\", \"me tengo que ir\". Not true for someone who is merely tired, brief, or wandering. When it is true you are wrapping up, not asking again.",
+      },
       should_end: {
         type: "boolean",
         description:
@@ -219,7 +308,54 @@ export interface NextQuestion {
   beats_now_covered: string[];
   beats_to_drop?: string[];
   beats_to_add?: string[];
+  they_are_leaving?: boolean;
+  /** They told you what to call them. It goes on the record. */
+  corrected_name?: string;
   should_end: boolean;
+}
+
+/**
+ * They said they have to go.
+ *
+ * A model reading a transcript will sometimes sail straight past this and ask
+ * another question, which is the single rudest thing an interviewer can do — and
+ * the one a room full of judges will notice. So it does not rely on the model
+ * noticing: these phrases end the interview on their own.
+ *
+ * Kept deliberately narrow. "I have to go to the bank on Fridays" is a story, not
+ * an exit, so anything followed by "to" is left alone.
+ */
+const EXIT_EN =
+  /\b(i (?:have|need) to (?:go|run|leave|head out|get going)|i(?:'|’)?m gonna (?:head out|take off)|i gotta (?:go|run)|i(?:'|’)?m out of time|i(?:'|’)?m all out of time|(?:that|that's|thats) all (?:the time i have|i have time for)|i should get going|i have to take this|i(?:'|’)?m done here)\b(?!\s+to\b)/i;
+const EXIT_ES =
+  /\b(me tengo que ir|ya me tengo que ir|tengo que irme|ya me voy|se me hizo tarde|ya no tengo tiempo|no me queda tiempo|tengo que salir corriendo|hasta aqu[ií] llego)\b/i;
+
+export function exitSignal(text: string): boolean {
+  const t = (text ?? "").trim();
+  if (!t) return false;
+  return EXIT_EN.test(t) || EXIT_ES.test(t);
+}
+
+/**
+ * The opposite, and the one that stings more when it is missed.
+ *
+ * Asked "anything you'd like to add?", someone answered "I'd like to continue
+ * the interview" and was thanked and shown the door. They were not adding a
+ * footnote — they were asking for more, which is the best thing a subject can
+ * say. Only consulted at a closing, where the answer space is narrow enough for
+ * a phrase list to be safe.
+ */
+const MORE_EN =
+  /\b(continue|keep going|keep talking|carry on|go on|more time|a bit longer|a little longer|not done|not finished|more questions|another question|(?:i(?:'|’)?d like to|i want to|can we|could we|let(?:'|’)?s) (?:continue|keep|go|talk|stay))\b/i;
+const MORE_ES =
+  /\b(seguir|continuar|sigamos|continuemos|m[áa]s tiempo|un rato m[áa]s|no he terminado|no termin[ée]|m[áa]s preguntas|otra pregunta|quiero seguir|podemos seguir)\b/i;
+
+export function continueSignal(text: string): boolean {
+  const t = (text ?? "").trim();
+  if (!t) return false;
+  // "I have to go, but I'd like to continue another day" is leaving, not staying.
+  if (exitSignal(t)) return false;
+  return MORE_EN.test(t) || MORE_ES.test(t);
 }
 
 const STOPWORDS = new Set([
@@ -263,7 +399,7 @@ function wordsOverlap(a?: string, b?: string): boolean {
 /** Turns from the phase we're currently in. Intake chatter is not the interview. */
 export function turnsInPhase(interview: Interview): Turn[] {
   const phase = interview.phase ?? "interview";
-  return interview.turns.filter((t) => (t.phase ?? "interview") === phase);
+  return interview.turns.filter((t) => (t.phase ?? "interview") === phase && !t.redacted);
 }
 
 function transcriptFor(interview: Interview): string {
@@ -282,7 +418,14 @@ function elapsedMinutes(interview: Interview): number {
 export async function nextQuestion(
   assignment: Assignment,
   interview: Interview,
-  opts: { banned?: string; mustContinue?: boolean } = {},
+  opts: {
+    banned?: string;
+    mustContinue?: boolean;
+    afterWarning?: boolean;
+    mustClose?: boolean;
+    /** They wanted to keep going and there is no time left to give them. */
+    suggestAnother?: boolean;
+  } = {},
 ): Promise<NextQuestion> {
   const elapsed = elapsedMinutes(interview);
   const total = assignment.durationMinutes;
@@ -300,7 +443,9 @@ export async function nextQuestion(
   const turnBudget = assignment.maxQuestions ? Math.max(2, assignment.maxQuestions) : Infinity;
   const turnsLeft = turnBudget - asked.length;
   const closingAnswered = Boolean(interview.closingQuestionAsked && interview.turns.at(-1)?.speaker === "subject");
-  const closing = closingAnswered || turnsLeft <= 0 ? "thanks"
+  // They said they have to go. That outranks the clock, the beats and the budget:
+  // there is no closing question, only a thank-you.
+  const closing = opts.mustClose || opts.suggestAnother || closingAnswered || turnsLeft <= 0 ? "thanks"
     : remaining <= 1 || turnsLeft <= 1 ? "question" : undefined;
 
   // The failure mode that kills the demo: asking the same question a third
@@ -322,7 +467,11 @@ export async function nextQuestion(
 
   let clock: string;
   if (closing === "thanks") {
-    clock = "CLOSING: They have finished their final answer. Thank them warmly, with no question, and set should_end to true. Set move to close. Stop here.";
+    clock = opts.suggestAnother
+      ? "CLOSING, AND THEY WANTED MORE: they asked to keep going and this session is out of room. Do not treat that as a problem and do not apologise for it — wanting more is the best thing a subject can say. In two or three sentences: say plainly that you are out of time for today, name the one thread you would most want to pick up next (a real one, from the transcript), and tell them they can start another interview whenever they want and you will carry on from there. Warm, not wistful. No question of any kind. Set move to close and should_end to true."
+      : opts.mustClose
+      ? "CLOSING NOW: They just told you they have to go. Do not ask anything else. In one or two warm sentences, thank them for the time they did give you — refer to something real they told you if you can — and let them leave. No question of any kind. Set move to close and should_end to true."
+      : "CLOSING: They have finished their final answer. Thank them warmly, with no question, and set should_end to true. Set move to close. Stop here.";
   } else if (closing === "question") {
     clock =
       "CLOSING: Ask exactly one concise invitation to add anything important or reflect before wrapping up. " +
@@ -335,6 +484,14 @@ export async function nextQuestion(
     clock = `About ${remaining.toFixed(
       1,
     )} of ${total} minutes left. ${Number.isFinite(turnsLeft) ? `${turnsLeft} question slots remain, including the final invitation.` : "There is no question limit."} You have room to follow a good thread.`;
+  }
+
+  if (opts.afterWarning) {
+    clock +=
+      "\n\nTHEY JUST SAID SOMETHING INAPPROPRIATE AND HAVE BEEN WARNED ONCE.\n" +
+      "Do not react to it, do not reference it, do not scold them — that has been " +
+      "handled already. Ask a clean, ordinary question about the subject, as if the " +
+      "last thing they said had been a normal answer. Steady is the whole job here.";
   }
 
   if (opts.mustContinue && !closing) {
@@ -436,8 +593,12 @@ subject, do not invent a new name for it: ${priorTopics.join(", ") || "(none)"}
   }
   const fallbackClose = (thanks: boolean): NextQuestion => ({
     question: assignment.language === "es"
-      ? (thanks ? "Gracias por compartir tu historia y por tu tiempo." : "Antes de terminar, ¿hay algo importante que te gustaría agregar?")
-      : (thanks ? "Thank you for sharing your story and taking the time." : "Before we wrap up, is there anything important you'd like to add?"),
+      ? (opts.suggestAnother
+          ? "Me encantaría seguir, pero se nos acabó el tiempo de hoy. Cuando quieras empezamos otra entrevista y retomamos desde aquí. Gracias por tu tiempo."
+          : thanks ? "Gracias por compartir tu historia y por tu tiempo." : "Antes de terminar, ¿hay algo importante que te gustaría agregar?")
+      : (opts.suggestAnother
+          ? "I'd like to keep going too, but we're out of time for today. Start another interview whenever you want and we'll pick it up from here. Thank you for your time."
+          : thanks ? "Thank you for sharing your story and taking the time." : "Before we wrap up, is there anything important you'd like to add?"),
     move: "close", reasoning: "Give the interview a warm, complete ending.", topic: "closing", beats_now_covered: [], should_end: thanks,
   });
   if (closing || out?.move === "close" || out?.should_end) {
@@ -667,10 +828,21 @@ export async function classifyConsent(
 }
 
 /** The very first thing anyone hears in a self-serve session. */
+/**
+ * Said once, out loud, before anything is ended. People test a system to see
+ * what it does; telling them plainly is usually enough, and ending on the first
+ * word would throw away real interviews over a joke.
+ */
+export function warningLine(language?: Language): string {
+  return language === "es"
+    ? "Te paro un momento. Esto queda como un registro público con tu nombre, así que ahí no puedo acompañarte. Si vuelve a pasar tengo que cerrar la entrevista. Sigamos."
+    : "Let me stop you there. This ends up as a public record with your name on it, so I can't go with you there. If it happens again I'll have to end the interview. Let's keep going.";
+}
+
 export function intakeOpener(language?: Language): string {
   return language === "es"
-    ? "Hola, gracias por darme unos minutos. Te voy a preguntar un par de cosas sobre ti y después entramos en materia."
-    : "Hey — thanks for giving me a few minutes. I'm going to ask you a bit about yourself and then we'll get into it.";
+    ? `Hola, soy ${INTERVIEWER_NAME}. Gracias por darme unos minutos. Te voy a preguntar un par de cosas sobre ti y después entramos en materia.`
+    : `Hey — I'm ${INTERVIEWER_NAME}. Thanks for giving me a few minutes. I'm going to ask you a bit about yourself and then we'll get into it.`;
 }
 
 /** Warm cold-open so the subject isn't hit with a hard question first. */
@@ -678,8 +850,8 @@ export function greeting(assignment: Assignment): string {
   const first = (assignment.subjectName || "").split(" ")[0];
   if (assignment.language === "es") {
     const sobre = assignment.interviewType === "personal" ? "tu historia" : assignment.company?.trim() || "lo que haces";
-    return `Hola ${first}, gracias por esto. Te voy a preguntar sobre ${sobre} por unos ${assignment.durationMinutes} minutos. No hay respuestas malas — habla como le hablarías a un amigo. Cuando quieras.`;
+    return `Hola ${first}, soy ${INTERVIEWER_NAME}. Gracias por esto. Te voy a preguntar sobre ${sobre} por unos ${assignment.durationMinutes} minutos. No hay respuestas malas — habla como le hablarías a un amigo. Cuando quieras.`;
   }
   const about = assignment.interviewType === "personal" ? "your story" : assignment.company?.trim() || "what you do";
-  return `Hey ${first}, thanks for doing this. I'm going to ask you about ${about} for about ${assignment.durationMinutes} minutes. There are no wrong answers — just talk like you'd talk to a friend. Ready when you are.`;
+  return `Hey ${first}, I'm ${INTERVIEWER_NAME}. Thanks for doing this. I'm going to ask you about ${about} for about ${assignment.durationMinutes} minutes. There are no wrong answers — just talk like you'd talk to a friend. Ready when you are.`;
 }

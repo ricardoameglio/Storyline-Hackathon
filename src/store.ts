@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Assignment, GeneratedContent, Interview } from "./types.ts";
-import { isOnTheRecord } from "./visibility.ts";
+import { isOnTheRecord, questionsAsked } from "./visibility.ts";
 
 /**
  * Hackathon-grade persistence: in memory, mirrored to a JSON file so a
@@ -95,10 +95,7 @@ export const store = {
       interviewsStarted: interviews.length,
       interviewsFinished: finished.length,
       minutesOnTheRecord: Math.round(minutes),
-      questionsAsked: interviews.reduce(
-        (n, i) => n + i.turns.filter((t) => t.speaker === "interviewer").length,
-        0,
-      ),
+      questionsAsked: interviews.reduce((n, i) => n + questionsAsked(i), 0),
     };
   },
 };

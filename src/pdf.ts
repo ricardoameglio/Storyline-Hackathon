@@ -11,7 +11,22 @@ export function interviewPdf(a: Assignment, i: Interview, c: GeneratedContent): 
     doc.on("data", chunk => chunks.push(chunk));
     doc.on("error", reject);
     doc.on("end", () => resolve(Buffer.concat(chunks)));
-    const text = (value: string) => value.normalize("NFC").replace(/[\u2011\u2013\u2014]/g, "-");
+    /**
+     * pdfkit's built-in fonts cover WinAnsi, which is most of what an editor
+     * writes: em and en dashes, curly quotes, the ellipsis, the euro, accents.
+     * Flattening those to ASCII made a product that sells "publishable copy"
+     * print like a terminal, so only the genuinely unsupported characters are
+     * swapped \u2014 each of these was rendered and checked, because pdfkit does not
+     * throw on a missing glyph, it quietly prints the wrong one (U+2011 came out
+     * as a space, U+202F as a slash, U+2212 as a double quote).
+     */
+    const text = (value: string) =>
+      value
+        .normalize("NFC")
+        .replace(/\u2011/g, "-")
+        .replace(/\u2212/g, "-")
+        .replace(/\u202f/g, " ")
+        .replace(/\u2032/g, "'");
     doc.fillColor("#656B60").font("Helvetica-Bold").fontSize(10).text("PROLOGUE", { characterSpacing: 2 });
     doc.moveDown(1.8);
     doc.fillColor("#282B25").font("Times-Roman").fontSize(27).text(text(c.nail || (a.language === "es" ? "Tu entrevista" : "Your interview")));

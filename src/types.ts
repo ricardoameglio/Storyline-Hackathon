@@ -49,6 +49,13 @@ export interface Turn {
   move?: InterviewMove;
   /** Intake turns are kept for the record but stay out of the interview transcript. */
   phase?: "intake" | "interview";
+  /**
+   * Something that earned a warning. The words are dropped on the spot, and the
+   * turn is skipped everywhere downstream — the model, the write-up, the PDF.
+   * A warning that still let the sentence reach the published record would be
+   * a warning in name only.
+   */
+  redacted?: boolean;
 }
 
 export type InterviewMove =
@@ -76,6 +83,8 @@ export type InterviewPhase = "intake" | "interview";
 export interface Interview {
   /** The final invitation has been delivered; the next answer gets a thank-you. */
   closingQuestionAsked?: boolean;
+  /** Times the subject asked to keep going and the clock was pushed back. */
+  extensions?: number;
   id: string;
   assignmentId: string;
   status: InterviewStatus;
@@ -91,6 +100,8 @@ export interface Interview {
    * written up, and never reaches The Wall.
    */
   endedReason?: "screened";
+  /** Strikes. One is a warning; the second ends it. */
+  warnings?: number;
   rawTranscript?: string;
   cleanTranscript?: string;
   transcriptCleanup?: "cleaned" | "fallback";

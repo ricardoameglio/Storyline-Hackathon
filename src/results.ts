@@ -6,7 +6,10 @@ export function resultSections(a: Assignment, i: Interview, c: GeneratedContent)
   return [
     { title: es ? "RESUMEN" : "SUMMARY", text: c.summary },
     { title: es ? "IDEAS CLAVE" : "KEY TAKEAWAYS", text: c.keyTakeaways?.map((s, n) => `${String(n + 1).padStart(2, "0")}  ${s}`).join("\n\n") },
-    { title: es ? "MOMENTOS PARA RECORDAR" : "MOMENTS WORTH KEEPING", text: c.pullQuotes?.map(q => `“${q.quote}”`).join("\n\n") },
+    // No quotes worth printing means no section. An empty heading is honest; a
+    // heading over filler is the one thing on the page a reader remembers.
+    { title: es ? "MOMENTOS PARA RECORDAR" : "MOMENTS WORTH KEEPING",
+      text: c.pullQuotes?.filter(q => q?.quote?.trim()).map(q => `“${q.quote.trim()}”`).join("\n\n") },
     { title: es ? "HISTORIA" : "STORY", text: c.blogDraft || c.linkedinPost || c.instagramCaption },
     { title: es ? "VISIBILIDAD" : "VISIBILITY", text: isOnTheRecord(i) ? (es ? "En el archivo público" : "On the Record") : (es ? "Privada" : "Private") },
   ].filter(s => s.text);

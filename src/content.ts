@@ -46,6 +46,26 @@ said in the transcript. Specifically:
 THEN THE COPY. Rules:
 - Every quote must be verbatim from the transcript. Never invent, tidy, or improve a
   quote. You may trim with an ellipsis. If you are not sure it was said, leave it out.
+- A PULL QUOTE HAS TO EARN ITS PLACE. It is a sentence a stranger would stop and
+  read: a number, a scene, a decision, something said better than you could write
+  it. These are never pull quotes — a question the subject asked, a one-word
+  answer, a greeting, "I don't know", small talk, anything that only makes sense
+  with the interviewer's line next to it, or a sentence that carries no fact and
+  no feeling. Printing those under a heading like "moments worth keeping" tells
+  the reader you had nothing and hoped they would not notice.
+- SPEECH-TO-TEXT MISHEARS WORDS. The transcript comes from a microphone, so a
+  line will occasionally contain a word that is obviously wrong: "it was his turn
+  to write it" when the whole story is about a bike, a name mangled into a
+  different word, a sentence that breaks in a way nobody speaks. You may NOT fix
+  it — a quotation is what they said, and you cannot know what they meant. What
+  you do instead is not print it: choose a different line, or print one fewer.
+  You may still use the meaning in the summary or the story, where you are
+  writing in your own voice. Quoting a sentence that reads as nonsense makes the
+  transcript look broken and the subject look careless, and they were neither.
+- THERE IS NO QUOTA. Two great quotes beat five padded ones. If the transcript
+  contains nothing that earns it, return an EMPTY list and say so plainly in the
+  summary. An empty section is honest; a filled one that shouldn't be is the only
+  thing on the page a reader will remember, and not kindly.
 - Lead with the most specific detail in the whole transcript. Specificity is the
   entire job. "Four in the morning" beats "early". "$38" beats "affordable".
 - No marketing throat-clearing. Kill "In today's fast-paced world", "Imagine a place",
@@ -82,7 +102,8 @@ const CONTENT_TOOL = {
       },
       pullQuotes: {
         type: "array",
-        description: "Three to five verbatim quotes, best first.",
+        description:
+          "Verbatim quotes worth printing, best first. Usually two to five. There is no quota: include only lines that earn it, and return an empty list when the transcript has none.",
         items: {
           type: "object",
           properties: {
@@ -235,7 +256,7 @@ const FACTCHECK_TOOL = {
       pullQuotes: {
         type: "array",
         description:
-          "The corrected pull quotes. Each 'quote' must be verbatim; each 'why' is the editor's note and only needs its facts to hold up. Return the full corrected list, including the ones you did not change.",
+          "The corrected pull quotes. Each 'quote' must be verbatim; each 'why' is the editor's note and only needs its facts to hold up. Return the full corrected list, including the ones you did not change. Drop any entry that is not really a quotation worth printing — a question the subject asked, a one-word answer, small talk — and return an empty list if none of them survive. There is no minimum. Also drop a quote whose wording is clearly a speech-to-text mishearing (a word that cannot be what they said, given the rest of the transcript): never repair it, because a quotation is what was said, but do not print a sentence that reads as nonsense.",
         items: {
           type: "object",
           properties: {
@@ -352,9 +373,37 @@ ${rawTranscript}`,
   if (!draft) throw new Error("The editor returned nothing usable.");
 
   try {
-    return await factCheck(rawTranscript, draft, assignment.language === "es");
+    return unescapeNewlines(await factCheck(rawTranscript, draft, assignment.language === "es"));
   } catch (err) {
     console.error("[factcheck] failed, delivering the unchecked draft:", err);
-    return draft;
+    return unescapeNewlines(draft);
   }
+}
+
+/**
+ * A model writing a multi-paragraph field through a JSON tool call sometimes
+ * escapes its own line breaks, and the two characters `\` `n` end up printed in
+ * the middle of a sentence — in the PDF, on The Wall, everywhere. Harmless to
+ * undo, and the alternative is a paragraph break rendered as punctuation in a
+ * document that is meant to look typeset.
+ */
+function unescapeNewlines<T extends GeneratedContent>(content: T): T {
+  const fix = (value: unknown) =>
+    typeof value === "string"
+      ? value.replace(/\\r\\n|\\n|\\r/g, "\n").replace(/\\t/g, " ").replace(/\n{3,}/g, "\n\n").trim()
+      : value;
+  const out: Record<string, unknown> = { ...content } as Record<string, unknown>;
+  for (const [key, value] of Object.entries(out)) {
+    if (typeof value === "string") out[key] = fix(value);
+    else if (Array.isArray(value)) {
+      out[key] = value.map((item) =>
+        typeof item === "string"
+          ? fix(item)
+          : item && typeof item === "object"
+            ? Object.fromEntries(Object.entries(item).map(([k, v]) => [k, fix(v)]))
+            : item,
+      );
+    }
+  }
+  return out as T;
 }

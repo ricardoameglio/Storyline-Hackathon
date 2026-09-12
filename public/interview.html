@@ -69,8 +69,36 @@
     text-transform:uppercase; color:#7A4E0B;
   }
   .alert-body{margin:0; font-size:15px; line-height:1.5; color:#5C3D0C}
+  /* A warning is the same amber, a shade softer — a stop is not a scolding. */
+  .alert.alert-warn{background:#FEF8E7; border-left-color:#E4B53F}
   @media print{ .alert{display:none !important} }
-  .level{height:3px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:18px}
+  /* The ten minutes, made visible. A promise you can watch being kept. */
+  .timebar{height:3px; border-radius:2px; background:var(--line); overflow:hidden; margin:10px 0 22px}
+  .timebar i{display:block; height:100%; width:0; border-radius:2px; background:var(--accent);
+    transition:width 1s linear, background .4s ease}
+  .timebar.last-minute i{background:#C2870A}
+  .viz-row{margin:-8px 0 18px; display:flex; justify-content:center; align-items:center; position:relative}
+  #viz{width:100%; max-width:300px; height:34px; display:block}
+
+  /* Mute. No box, no fill — just the symbol, in the page's own ink. It turns
+     amber when the mic is off, because the one thing worse than being muted is
+     not knowing you are. */
+  /* The extra class beats .interview-page button, which would otherwise give it
+     a filled background and a 44px box — exactly the recuadro we don't want. */
+  .interview-page .micbtn{position:absolute; right:0; top:50%; transform:translateY(-50%);
+    background:none; background-color:transparent; border:0; box-shadow:none;
+    padding:6px; margin:0; cursor:pointer; line-height:0; min-height:0; border-radius:6px;
+    color:var(--muted); transition:color .18s ease}
+  .interview-page .micbtn:hover{background:none; background-color:transparent; color:var(--ink)}
+  .interview-page .micbtn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  .interview-page .micbtn.muted{color:#C2870A}
+  .micbtn svg{width:21px; height:21px; display:block}
+  .micbtn[hidden]{display:none}
+  .micbtn .off{display:none}
+  .micbtn.muted .on{display:none}
+  .micbtn.muted .off{display:block}
+  @media (max-width:480px){ #viz{max-width:210px} }
+  .level{height:3px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:10px}
   .level i{display:block; height:100%; width:0%; background:var(--accent); transition:width .12s}
 
   .log{margin-top:40px; border-top:1px solid var(--line); padding-top:20px;
@@ -168,7 +196,19 @@
   <!-- live -->
   <section id="live" hidden>
     <div class="session-meta"><p id="sessionState" role="status" aria-live="polite">Ready</p><span id="questionProgress"></span></div>
+    <div class="timebar" id="timebar" aria-hidden="true"><i id="timefill"></i></div>
     <h1 class="question" id="question" aria-live="polite"></h1>
+    <div class="viz-row">
+      <canvas id="viz" aria-hidden="true"></canvas>
+      <button class="micbtn" id="micToggle" type="button" aria-pressed="false" aria-label="Mute microphone" title="Mute microphone">
+        <svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="2.5" width="6" height="11.5" rx="3" /><path d="M5 11.5a7 7 0 0 0 14 0" /><path d="M12 18.5v3" /><path d="M8.5 21.5h7" />
+        </svg>
+        <svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="2.5" width="6" height="11.5" rx="3" /><path d="M5 11.5a7 7 0 0 0 14 0" /><path d="M12 18.5v3" /><path d="M8.5 21.5h7" /><path d="M3.6 3.2 20.4 20.8" />
+        </svg>
+      </button>
+    </div>
     <div class="heard" id="heard"><span class="ph">Listening…</span></div>
     <div class="level"><i id="lvl"></i></div>
     <div id="typed" hidden>
@@ -228,6 +268,7 @@
   </section>
 </div>
 
+<script src="/waveform.js"></script>
 <script src="/interview.js"></script>
 </body>
 </html>

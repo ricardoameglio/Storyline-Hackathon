@@ -8,16 +8,19 @@ import {
   alreadyAsked,
   classifyConsent,
   consentQuestion,
+  continueSignal,
+  exitSignal,
   consentThanks,
   greeting,
   intakeOpener,
+  warningLine,
   intakeQuestion,
   nextQuestion,
 } from "./interviewer.ts";
 import { id, store } from "./store.ts";
 import { preflightTts, speak, ttsEnabled } from "./tts.ts";
 import type { Assignment, Deliverable, Interview, Language } from "./types.ts";
-import { isOnTheRecord, recordConsent } from "./visibility.ts";
+import { isOnTheRecord, questionsAsked, recordConsent } from "./visibility.ts";
 import { screenAnswer, screenedGoodbye } from "./safety.ts";
 import { summaryText } from "./results.ts";
 import { interviewPdf } from "./pdf.ts";
@@ -74,7 +77,7 @@ function kickOffContent(interview: Interview) {
   if (!assignment) return;
   // Intake answers are not the interview. An abandoned handshake writes nothing.
   const said = interview.turns.filter(
-    (t) => t.speaker === "subject" && (t.phase ?? "interview") === "interview",
+    (t) => t.speaker === "subject" && (t.phase ?? "interview") === "interview" && !t.redacted,
   );
   if (said.length === 0) return;
 
@@ -364,6 +367,26 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
    * End it, forced private, with no write-up. Consent is stamped so the choice
    * screen never appears and nothing can ever promote this onto The Wall.
    */
+  /**
+   * First offence is a warning, spoken out loud, and the interview continues.
+   * Ending on the first word would throw away real interviews over a joke —
+   * and most people who test a system stop once you tell them plainly.
+   */
+  const strike = (reason: string) => {
+    interview.warnings = (interview.warnings ?? 0) + 1;
+    // Drop the words. A warning that let the sentence through to the write-up,
+    // the PDF and The Wall would be a warning in name only — and keeping it on
+    // disk is the bad record he is trying not to make.
+    const last = interview.turns.at(-1);
+    if (last?.speaker === "subject") {
+      last.text = "[removed]";
+      last.redacted = true;
+    }
+    store.putInterview(interview);
+    console.log(`[screen] ${interview.id} strike ${interview.warnings}: ${reason}`);
+    return interview.warnings;
+  };
+
   const endScreened = (reason: string) => {
     console.log(`[screen] ${interview.id} ended: ${reason}`);
     interview.status = "finished";
@@ -378,6 +401,35 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
       ended: true,
       say: screenedGoodbye(assignment.language),
     });
+  };
+
+  /**
+   * They asked for more time at the closing question.
+   *
+   * Someone said "I'd like to continue the interview" and was thanked and shown
+   * the door — the exact opposite failure to ignoring "I have to go", and the
+   * more expensive one, because that person was offering you the material.
+   *
+   * The clock is pushed back from NOW rather than from the original start, so an
+   * interview already past its deadline gets real room instead of a minute that
+   * expires on the next turn. Twice only: a third extension is not a longer
+   * interview, it is a second interview, and Kara says so.
+   */
+  const MAX_EXTENSIONS = 2;
+  const canExtend = () => (interview.extensions ?? 0) < MAX_EXTENSIONS;
+  const extend = () => {
+    const elapsed = (Date.now() - (interview.startedAt ?? Date.now())) / 60000;
+    const extra = Math.min(10, Math.max(3, assignment.durationMinutes));
+    assignment.durationMinutes = Math.ceil(elapsed + extra);
+    if (assignment.maxQuestions) assignment.maxQuestions += Math.max(2, Math.round(extra / 2));
+    store.putAssignment(assignment);
+    interview.extensions = (interview.extensions ?? 0) + 1;
+    interview.closingQuestionAsked = false;
+    store.putInterview(interview);
+    console.log(
+      `[extend] ${interview.id} +${extra}min (now ${assignment.durationMinutes}min` +
+        `${assignment.maxQuestions ? `, ${assignment.maxQuestions} questions` : ""}), extension ${interview.extensions}`,
+    );
   };
 
   const inIntake = (interview.phase ?? "interview") === "intake";
@@ -395,7 +447,16 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
         screening,
         intakeQuestion(interview, assignment.language, assignment.interviewType),
       ]);
-      if (intakeVerdict.stop) return endScreened(intakeVerdict.reason);
+      if (intakeVerdict.stop) {
+        if (strike(intakeVerdict.reason) >= 2) return endScreened(intakeVerdict.reason);
+        return res.json({
+          interview,
+          assignment,
+          warned: true,
+          say: warningLine(assignment.language),
+          question: asQuestion(step.question, "Continuing after a warning."),
+        });
+      }
       applyIntake(assignment, step.collected ?? {});
       interview.turns.push({
         speaker: "interviewer",
@@ -438,6 +499,30 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
       });
     }
 
+    // They said they have to go. Asking one more question after that is the
+    // rudest thing an interviewer can do, so it is decided here rather than left
+    // to the model to notice — it read "I have to go" once and asked anyway.
+    const leavingNow = exitSignal(text);
+    if (leavingNow) console.log(`[exit] ${interview.id} said they have to go — wrapping up`);
+
+    // And the opposite: the interview is about to end and they want more of it.
+    const atTheDoor =
+      !leavingNow &&
+      (Boolean(interview.closingQuestionAsked) ||
+        Boolean(
+          assignment.maxQuestions &&
+            interview.turns.filter(
+              (t) => t.speaker === "interviewer" && (t.phase ?? "interview") === "interview",
+            ).length >= assignment.maxQuestions,
+        ));
+    const wantsMore = atTheDoor && continueSignal(text);
+    let outOfRoom = false;
+    if (wantsMore && canExtend()) extend();
+    else if (wantsMore) {
+      outOfRoom = true;
+      console.log(`[extend] ${interview.id} wanted more but is out of extensions — offering another interview`);
+    }
+
     const askedSoFar = interview.turns.filter(
       (t) => t.speaker === "interviewer" && (t.phase ?? "interview") === "interview",
     ).length;
@@ -447,7 +532,16 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
     // questions is kept by the server or it is not kept.
     if (assignment.maxQuestions && askedSoFar >= assignment.maxQuestions) {
       const verdict = await screening;
-      if (verdict.stop) return endScreened(verdict.reason);
+      if (verdict.stop && strike(verdict.reason) >= 2) return endScreened(verdict.reason);
+      if (outOfRoom) {
+        const closer = await nextQuestion(assignment, interview, { suggestAnother: true });
+        interview.turns.push({ speaker: "interviewer", text: closer.question, at, phase: "interview", move: "close", reasoning: closer.reasoning });
+        interview.status = "finished";
+        interview.endedAt = Date.now();
+        store.putInterview(interview);
+        kickOffContent(interview);
+        return res.json({ interview, assignment, limitReached: true, offerAnother: true, say: closer.question });
+      }
       console.log(`[limit] ${interview.id} reached ${assignment.maxQuestions} — closing`);
       interview.turns.push({
         speaker: "interviewer",
@@ -467,10 +561,68 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
 
     const [verdict, firstDraft] = await Promise.all([
       screening,
-      nextQuestion(assignment, interview),
+      nextQuestion(
+        assignment,
+        interview,
+        leavingNow ? { mustClose: true }
+        : outOfRoom ? { suggestAnother: true }
+        // Extended: the closing already happened, so push it back out rather than
+        // letting it drift straight into another goodbye.
+        : wantsMore ? { mustContinue: true }
+        : {},
+      ),
     ]);
-    if (verdict.stop) return endScreened(verdict.reason);
     let q = firstDraft;
+
+    if (verdict.stop) {
+      if (strike(verdict.reason) >= 2) return endScreened(verdict.reason);
+      // Throw the draft away: it was written in reply to what they just said, and
+      // it should not carry any of it. Ask again as if nothing had happened.
+      q = await nextQuestion(assignment, interview, { afterWarning: true });
+      q.should_end = false;
+      interview.turns.push({
+        speaker: "interviewer",
+        text: q.question,
+        at,
+        phase: "interview",
+        move: q.move,
+        topic: q.topic,
+        reasoning: q.reasoning,
+      });
+      store.putInterview(interview);
+      return res.json({
+        interview,
+        assignment,
+        warned: true,
+        say: warningLine(assignment.language),
+        question: q,
+      });
+    }
+
+    // They corrected their name. It has to reach the assignment, not just the
+    // conversation: the header, the transcript labels and The Wall all read from
+    // there, and a record that says "Mauricio" above a story about Ricky is the
+    // first thing the subject will notice and the last thing they will forgive.
+    const corrected = (q.corrected_name ?? "").trim();
+    if (
+      corrected &&
+      corrected.length <= 40 &&
+      corrected.toLowerCase() !== (assignment.subjectName ?? "").toLowerCase()
+    ) {
+      console.log(`[name] ${interview.id} "${assignment.subjectName}" -> "${corrected}"`);
+      assignment.subjectName = corrected;
+      store.putAssignment(assignment);
+      // The speaker labels were rendered with the old name; make them be rebuilt.
+      interview.rawTranscript = undefined;
+      interview.cleanTranscript = undefined;
+    }
+
+    // The phrase list is deliberately narrow, so the model gets a say too: if it
+    // read the answer as someone leaving, take its word and wrap up.
+    if (!leavingNow && q.they_are_leaving && q.move !== "close") {
+      console.log(`[exit] ${interview.id} model read it as leaving — wrapping up`);
+      q = await nextQuestion(assignment, interview, { mustClose: true });
+    }
 
     // Repeat catcher, across the whole interview rather than the last few turns.
     const priorQuestions = interview.turns
@@ -612,7 +764,7 @@ app.post("/api/interviews/:iid/content", async (req, res) => {
   }
   if (
     interview.turns.filter(
-      (t) => t.speaker === "subject" && (t.phase ?? "interview") === "interview",
+      (t) => t.speaker === "subject" && (t.phase ?? "interview") === "interview" && !t.redacted,
     ).length === 0
   ) {
     return res.status(400).json({ error: "Nobody said anything yet." });
@@ -709,7 +861,7 @@ app.get("/api/wall", (_req, res) => {
         subject: a?.subjectName,
         company: a?.company,
         minutes: Math.round((((i.endedAt ?? 0) - (i.startedAt ?? 0)) / 60000) * 10) / 10,
-        questions: i.turns.filter((t) => t.speaker === "interviewer").length,
+        questions: questionsAsked(i),
         nail: c?.nail,
         topQuote: c?.pullQuotes?.[0]?.quote,
       };

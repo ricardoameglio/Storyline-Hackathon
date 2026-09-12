@@ -57,6 +57,7 @@ const el = {
   next: $("next"), repeat: $("repeat"), finish: $("finish"),
   hint: $("hint"), err: $("err"), log: $("log"), logBox: $("logBox"),
   clock: $("clock"), dot: $("dot"), thanks: $("thanks"), endStats: $("endStats"),
+  timebar: $("timebar"), timefill: $("timefill"), micToggle: $("micToggle"),
   pdf: $("pdf"), endBar: $("endBar"), writing: $("writing"), copy: $("copy"),
   alert: $("alert"), alertTitle: $("alertTitle"), alertBody: $("alertBody"),
 };
@@ -75,6 +76,10 @@ const STRINGS = {
     listening: "Listening…", typeHere: "Type your answer…",
     hintVoice: "Answers send after a pause. You can also finish manually.",
     hintText: "Type your answer, then press Send.",
+    mute: "Mute microphone",
+    unmute: "Turn the microphone back on",
+    mutedHint: "Microphone off. Kara is waiting — turn it back on when you're ready.",
+    mutedHeard: "Microphone off",
     micHint: "Works best in Chrome. Your mic stays on only while you're answering.",
     textHint: "Answer by typing. Your microphone stays off.",
     thinking: "Thinking…",
@@ -96,6 +101,9 @@ const STRINGS = {
     micBlocked: "Mic permission was blocked. Allow it in the address bar, or switch to typing.",
     noSpeech: "This browser can't hear you — switch to typing.",
     tryAgain: "Press the button to try again.",
+    warnTitle: "Warning · content not allowed",
+    warnBody:
+      "Explicit, sexual, hateful or threatening language isn't allowed here — this conversation becomes a record with your name on it. The interview will continue, but if it happens again it ends.",
     alertTitle: "Alert · content not allowed",
     alertBody:
       "This interview has been ended. Explicit, sexual, hateful or threatening language isn't allowed here — these conversations are kept as records with real people's names on them. Nothing from this session was saved or published.",
@@ -114,6 +122,10 @@ const STRINGS = {
     listening: "Escuchando…", typeHere: "Escribe tu respuesta…",
     hintVoice: "Habla normal. Espera a que termines.",
     hintText: "Escribe tu respuesta y dale Enviar.",
+    mute: "Silenciar micrófono",
+    unmute: "Volver a encender el micrófono",
+    mutedHint: "Micrófono apagado. Kara te espera — enciéndelo cuando quieras.",
+    mutedHeard: "Micrófono apagado",
     micHint: "Funciona mejor en Chrome. El micrófono solo se activa mientras respondes.",
     textHint: "Responde por escrito. El micrófono permanece apagado.",
     thinking: "Pensando…",
@@ -135,6 +147,9 @@ const STRINGS = {
     micBlocked: "Se bloqueó el micrófono. Permítelo en la barra de direcciones, o cambia a escribir.",
     noSpeech: "Este navegador no puede escucharte — cambia a escribir.",
     tryAgain: "Dale al botón para intentar otra vez.",
+    warnTitle: "Advertencia · contenido no permitido",
+    warnBody:
+      "Aquí no se permite lenguaje explícito, sexual, de odio ni amenazas — esta conversación queda como un registro con tu nombre. La entrevista sigue, pero si vuelve a pasar se cierra.",
     alertTitle: "Alerta · contenido no permitido",
     alertBody:
       "Esta entrevista se cerró. Aquí no se permite lenguaje explícito, sexual, de odio ni amenazas — estas conversaciones quedan como registros con el nombre real de una persona. No se guardó ni se publicó nada de esta sesión.",
@@ -151,24 +166,59 @@ let phase = "interview";
 let startedAt = null;
 let recog = null;
 let listening = false;
+/**
+ * Muted means the microphone is actually off, not merely ignored: the recognizer
+ * is stopped and the stream's tracks are released, so the browser's own
+ * recording light goes out. Anything less and you are asking the person to trust
+ * a label. It also survives the turn — Kara asking the next question does not
+ * quietly reopen a mic somebody deliberately closed.
+ */
+let muted = false;
 let silenceTimer = null;
 let finalText = "";
 let interimText = "";
 let busy = false;
 let audio = null;
 let questionCount = 0;
+
+/**
+ * Real questions only, counted the same way the server counts them.
+ *
+ * The intake handshake is not the interview and the closing "thank you" is not a
+ * question, so counting every interviewer turn puts "Question 4 of 2" on screen
+ * — a number that contradicts the promise right next to it. Derived from the
+ * server's own turns rather than incremented locally, so it cannot drift: a
+ * question thrown away after a warning was never asked, and never counts.
+ */
+function countQuestions(interview) {
+  return (interview?.turns || []).filter(
+    (t) =>
+      t.speaker === "interviewer" &&
+      (t.phase ?? "interview") === "interview" &&
+      !(t.move === "close" && !/[?¿]/.test(t.text || "")),
+  ).length;
+}
 let completedInterview = null;
 let resultText = "";
 
 function presentState(state) {
   el.live.dataset.state = state;
   const labels = language === "es"
-    ? { ready: "Listo para responder", listening: "Escuchando", speaking: "Entrevistador hablando", thinking: "Pensando", starting: "Conectando", error: "Necesita atención", complete: "Entrevista completa" }
-    : { ready: "Ready for your answer", listening: "Listening", speaking: "Interviewer speaking", thinking: "Thinking", starting: "Connecting", error: "Needs attention", complete: "Interview complete" };
+    ? { ready: "Listo para responder", listening: "Escuchando", muted: "Micrófono apagado", speaking: "Kara está hablando", thinking: "Kara está pensando", starting: "Conectando", error: "Necesita atención", complete: "Entrevista completa" }
+    : { ready: "Ready for your answer", listening: "Listening", muted: "Microphone off", speaking: "Kara is speaking", thinking: "Kara is thinking", starting: "Connecting", error: "Needs attention", complete: "Interview complete" };
   if ($("sessionState")) $("sessionState").textContent = labels[state] || labels.ready;
+  const cap = assignment?.maxQuestions;
+  // The server enforces the cap, so the counter can never legitimately pass it.
+  // Belt and braces: a number that contradicts the promise beside it is the kind
+  // of thing a room notices.
+  const shown = cap ? Math.min(questionCount, cap) : questionCount;
   if ($("questionProgress")) $("questionProgress").textContent = phase === "intake"
     ? (language === "es" ? "Presentación" : "Getting acquainted")
-    : (questionCount ? (language === "es" ? `Pregunta ${questionCount}` : `Question ${questionCount}`) : "");
+    : (shown
+      ? (language === "es"
+        ? `Pregunta ${shown}${cap ? ` de ${cap}` : ""}`
+        : `Question ${shown}${cap ? ` of ${cap}` : ""}`)
+      : "");
   const waiting = ["starting", "thinking", "speaking"].includes(state);
   el.next.disabled = el.repeat.disabled = el.swap.disabled = el.finish.disabled = waiting;
 }
@@ -229,6 +279,11 @@ function applyStaticStrings() {
   if (el.writing) el.writing.textContent = T.writing;
   if (el.typedText) el.typedText.placeholder = T.typeHere;
   if (el.heard) el.heard.innerHTML = `<span class="ph">${T.listening}</span>`;
+  if (el.micToggle) {
+    const label = muted ? T.unmute : T.mute;
+    el.micToggle.setAttribute("aria-label", label);
+    el.micToggle.setAttribute("title", label);
+  }
 }
 
 /* ---------------------------------------------------------------- mode */
@@ -243,6 +298,8 @@ function setMode(next, tellServer = true) {
   el.modeText?.setAttribute("aria-pressed", String(isText));
   if (el.typed) el.typed.hidden = !isText;
   if (el.heard) el.heard.hidden = isText;
+  // Nothing to mute when they are typing.
+  if (el.micToggle) el.micToggle.hidden = isText;
   if (el.repeat) el.repeat.hidden = isText;
   if (el.swap) el.swap.textContent = isText ? T.talkInstead : T.type;
   if (el.next) el.next.textContent = isText ? T.send : T.done;
@@ -314,7 +371,7 @@ function buildRecognizer() {
 }
 
 function startListening() {
-  if (mode === "text") return;
+  if (mode === "text" || muted) return;
   el.err.textContent = "";
   finalText = ""; interimText = "";
   lastFinalAt = 0;
@@ -325,6 +382,7 @@ function startListening() {
     return;
   }
   listening = true;
+  window.Waveform?.you();
   presentState("listening");
   el.dot.classList.remove("idle");
   recog = recog || buildRecognizer();
@@ -334,11 +392,38 @@ function startListening() {
 
 function stopListening() {
   listening = false;
+  window.Waveform?.idle();
   el.dot?.classList.add("idle");
   clearTimeout(silenceTimer);
   if (recog) { try { recog.stop(); } catch {} }
   if (el.lvl) el.lvl.style.width = "0%";
 }
+
+/** The mic switch. Off means off; on picks the conversation back up where it was. */
+function setMuted(next) {
+  muted = next;
+  el.micToggle?.classList.toggle("muted", muted);
+  el.micToggle?.setAttribute("aria-pressed", String(muted));
+  const label = muted ? T.unmute : T.mute;
+  el.micToggle?.setAttribute("aria-label", label);
+  el.micToggle?.setAttribute("title", label);
+
+  if (muted) {
+    stopListening();
+    window.Waveform?.release();
+    finalText = ""; interimText = "";
+    paintHeard();
+    if (el.hint) el.hint.textContent = T.mutedHint;
+    if (!el.live.hidden && !busy) presentState("muted");
+    return;
+  }
+  if (el.hint) el.hint.textContent = mode === "text" ? T.hintText : T.hintVoice;
+  // Only reopen the mic if it is actually their turn. Unmuting while Kara is
+  // mid-sentence should not start recording her.
+  if (!el.live.hidden && !busy && mode === "voice") startListening();
+}
+
+el.micToggle && (el.micToggle.onclick = () => setMuted(!muted));
 
 function resetSilence() {
   clearTimeout(silenceTimer);
@@ -350,7 +435,9 @@ function resetSilence() {
 function paintHeard() {
   const t = (finalText + interimText).trim();
   el.heard.classList.toggle("active", Boolean(t));
-  el.heard.innerHTML = t ? escapeHtml(t) : `<span class="ph">${T.listening}</span>`;
+  el.heard.innerHTML = t
+    ? escapeHtml(t)
+    : `<span class="ph">${muted ? T.mutedHeard : T.listening}</span>`;
   el.heard.scrollTop = el.heard.scrollHeight;
 }
 
@@ -378,6 +465,7 @@ async function say(text) {
     const url = URL.createObjectURL(new Blob([buf], { type: "audio/mpeg" }));
     if (audio) audio.pause();
     audio = new Audio(url);
+    window.Waveform?.ai(audio);
     await new Promise((resolve) => {
       audio.onended = resolve;
       audio.onerror = resolve;
@@ -419,7 +507,7 @@ el.start.onclick = async () => {
 
     await say(data.greeting);
     logTurn("q", data.question.question, data.question.reasoning, data.question.move);
-    questionCount++;
+    questionCount = countQuestions(data.interview);
     await say(data.question.question);
     afterQuestion();
   } catch (e) {
@@ -456,9 +544,11 @@ el.typedText && el.typedText.addEventListener("keydown", (e) => {
 
 /** After the interviewer finishes speaking: listen, or hand them the keyboard. */
 function afterQuestion() {
-  presentState(mode === "text" ? "ready" : "listening");
-  if (mode === "text") el.typedText?.focus();
-  else startListening();
+  if (mode === "text") { presentState("ready"); el.typedText?.focus(); return; }
+  // A mic somebody switched off stays off across the turn.
+  if (muted) { presentState("muted"); paintHeard(); return; }
+  presentState("listening");
+  startListening();
 }
 
 async function submitAnswer() {
@@ -502,11 +592,29 @@ async function submitAnswer() {
     if (data.assignment) assignment = data.assignment;
     phase = data.interview?.phase || phase;
 
+    // First strike: warn on screen and out loud, then carry on with the clean
+    // question the server already wrote for us.
+    if (data.warned) {
+      redactLastAnswer();
+      showAlert("warn");
+      const q = data.question;
+      logTurn("q", q.question, q.reasoning, q.move);
+      questionCount = countQuestions(data.interview);
+      busy = false;
+      el.next.disabled = false;
+      el.heard.innerHTML = `<span class="ph">${T.listening}</span>`;
+      el.hint.textContent = mode === "text" ? T.hintText : T.hintVoice;
+      if (data.say) await say(data.say);
+      await say(q.question);
+      return afterQuestion();
+    }
+
     // The screener ended it. Put the warning up FIRST, so it is on screen while
     // the interviewer says its line — they should see why, not just that.
     if (data.ended || !data.question) {
       busy = false;
       el.next.disabled = false;
+      if (data.interview?.endedReason === "screened") redactLastAnswer();
       if (data.ended) showAlert();
       if (data.say) await say(data.say);
       return showEnd(data.interview);
@@ -514,7 +622,7 @@ async function submitAnswer() {
 
     const q = data.question;
     logTurn("q", q.question, q.reasoning, q.move);
-    questionCount++;
+    questionCount = countQuestions(data.interview);
     el.heard.innerHTML = `<span class="ph">${T.listening}</span>`;
     el.hint.textContent = mode === "text" ? T.hintText : T.hintVoice;
     busy = false;
@@ -536,15 +644,18 @@ async function submitAnswer() {
 }
 
 /** Amber banner, warning glyph, both languages. Stays up through the end screen. */
-function showAlert() {
+function showAlert(kind = "ended") {
   if (!el.alert) return;
-  el.alertTitle.textContent = T.alertTitle;
-  el.alertBody.textContent = T.alertBody;
+  const warn = kind === "warn";
+  el.alertTitle.textContent = warn ? T.warnTitle : T.alertTitle;
+  el.alertBody.textContent = warn ? T.warnBody : T.alertBody;
+  el.alert.classList.toggle("alert-warn", warn);
   el.alert.hidden = false;
   el.alert.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function showEnd(data = completedInterview) {
+  window.Waveform?.release();
   completedInterview = data;
   stopListening();
   if (audio) audio.pause();
@@ -580,7 +691,7 @@ function showEnd(data = completedInterview) {
   const first = (assignment?.subjectName || "").split(" ")[0];
   el.thanks.textContent = T.thanks(first);
   const mins = data.startedAt ? Math.max(0, Math.round(((data.endedAt || Date.now()) - data.startedAt) / 60000)) : 0;
-  questionCount = (data.turns || []).filter(t => t.speaker === "interviewer").length;
+  questionCount = countQuestions(data);
   el.endStats.textContent = mins === 0
     ? (language === "es" ? `${questionCount} preguntas en menos de un minuto.` : `${questionCount} questions in under a minute.`)
     : T.stats(questionCount, mins);
@@ -862,6 +973,12 @@ function tickClock() {
     if (!startedAt || completedInterview) return;
     const s = Math.floor((Date.now() - startedAt) / 1000);
     el.clock.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+    // Kara promised them a length. Show it being kept, and warn before it lands
+    // rather than after — nobody likes being surprised by the last question.
+    const total = (assignment?.durationMinutes || 10) * 60;
+    if (el.timefill) el.timefill.style.width = `${Math.min(100, (s / total) * 100)}%`;
+    if (el.timebar) el.timebar.classList.toggle("last-minute", total - s <= 60);
   }, 1000);
 }
 
@@ -875,6 +992,17 @@ function logTurn(kind, text, why, move) {
     (why ? `<div class="why">${escapeHtml(why)}</div>` : "");
   el.log.appendChild(d);
   el.logBox.scrollTop = el.logBox.scrollHeight;
+  return d;
+}
+
+/**
+ * A warned answer is dropped server-side, so the operator log must not be the
+ * one place it survives — least of all on a projector.
+ */
+function redactLastAnswer() {
+  const answers = el.log?.querySelectorAll(".t.a");
+  const last = answers && answers[answers.length - 1];
+  if (last) last.innerHTML = `<b>${escapeHtml(assignment?.subjectName || "them")}</b><i>[removed]</i>`;
 }
 
 function escapeHtml(s) {
