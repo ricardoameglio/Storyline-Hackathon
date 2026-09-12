@@ -15,14 +15,14 @@
 <a class="skip-link" href="#assignmentForm">Skip to the assignment</a>
 <div class="page-shell">
   <header class="masthead">
-    <a class="brand" href="/" aria-label="Prologue home"><span class="brand-logo" aria-hidden="true"><img src="/prologue-logo.png" alt="" width="1254" height="1254" /></span>prologue<span class="brand-divider" aria-hidden="true"></span><span class="product-label">Interviewer</span></a>
+    <a class="brand" href="/" aria-label="Prologue home"><span class="brand-logo" aria-hidden="true"><img src="/prologue-logo.png" alt="" width="1254" height="1254" /></span>prologue<span class="brand-divider" aria-hidden="true"></span><span class="product-label">Story Studio</span></a>
     <label class="theme-control" for="themeChoice">Theme<select id="themeChoice"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
 
   </header>
   <main>
     <header class="page-intro">
-      <h1>Start an interview</h1>
-      <p class="intro-copy">A conversation. A story worth sharing.</p>
+      <h1>Your story starts here.</h1>
+      <p class="intro-copy">Turn a conversation into something worth sharing.</p>
     </header>
     <div class="workspace">
       <section class="assignment" aria-labelledby="assignmentTitle">
@@ -71,7 +71,7 @@
       </section>
       <aside class="wall-panel" aria-labelledby="previewTitle">
         <section class="brief-preview" aria-labelledby="previewTitle">
-          <p class="eyebrow">Your brief</p><h3 id="previewTitle">A story starts with a person.</h3><p id="previewPerson" class="preview-person" hidden></p><p id="previewAngle">Add a name to prepare your interview.</p><p id="previewSettings" class="preview-settings">10 min · English · No question limit</p>
+          <p class="eyebrow">Your brief</p><h3 id="previewTitle">Behind every person is a story worth telling.</h3><p id="previewPerson" class="preview-person" hidden></p><p id="previewAngle">Personal Story · Discover the moments and experiences that shaped their journey.</p><p id="previewSettings" class="preview-settings">10 min · English · No question limit</p>
         </section>
         <section class="how-it-works" aria-labelledby="howTitle"><h3 id="howTitle">Your interview journey</h3><ol class="journey">
           <li><details><summary><span class="journey-node" aria-hidden="true">01</span><span><strong>Brief</strong><small>Choose a direction</small></span><span class="journey-toggle" aria-hidden="true">+</span></summary><p>Choose a style and add the person, or let the interviewer ask.</p></details></li>
@@ -246,6 +246,12 @@ function updateBrief() {
   const role = $("subjectRole").value.trim();
   const business = $("company").value.trim();
   const style = { career: "Career Journey", founder: "Founder Story", personal: "Personal Story", expert: "Expert Insight" }[selectedStyle()];
+  const description = {
+    career: "Explore the choices, turning points and growth that shaped their career.",
+    founder: "Discover the origins, challenges and breakthroughs behind their business.",
+    personal: "Discover the moments and experiences that shaped their journey.",
+    expert: "Explore the perspectives, knowledge and ideas they want to share.",
+  }[selectedStyle()];
   const validMinutes = $("durationMinutes").validity.valid && $("durationMinutes").value;
   const validQuestions = $("questionLimit").value !== "limited" || $("maxQuestions").validity.valid;
   const questionValue = selectedQuestionLimit();
@@ -259,13 +265,13 @@ function updateBrief() {
   if (setupMode === "guided") {
     $("previewTitle").textContent = "Your story starts in the room.";
     $("previewPerson").hidden = true;
-    $("previewAngle").textContent = `${style}. The interviewer will get to know you first.`;
+    $("previewAngle").textContent = `${style} · ${description}`;
     return;
   }
-  $("previewTitle").textContent = name ? `A conversation with ${name}.` : "A story starts with a person.";
+  $("previewTitle").textContent = name ? `A conversation with ${name}.` : "Behind every person is a story worth telling.";
   $("previewPerson").textContent = [role, business].filter(Boolean).join(" · ");
   $("previewPerson").hidden = !role && !business;
-  $("previewAngle").textContent = `${style}. A direction to explore, with room to follow your story.`;
+  $("previewAngle").textContent = `${style} · ${description}`;
 }
 function selectedStyle() {
   return ["styleCareer", "styleFounder", "stylePersonal", "styleExpert"].map($).find(input => input.checked)?.value || "personal";

@@ -11,9 +11,6 @@
 .style-choice strong, .style-choice small { display: block; }
 .style-choice strong { font-size: 13px; font-weight: 600; line-height: 1.5; }
 .style-choice small { margin-top: 4px; font-size: 12px; line-height: 1.5; color: var(--muted); }
-.style-choice:hover { border-color: var(--muted); }
-.style-choice:has(input:checked) { border-color: var(--accent); background: var(--soft-accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.style-choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
 .setup-preferences { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(130px, 1fr); align-items: start; gap: 16px; margin-bottom: 24px; }
 .settings-disclosure { padding-top: 25px; }
 .settings-disclosure > summary { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--action); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; background: var(--action); color: var(--on-action); }
@@ -88,10 +85,17 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .8; fo
 .field-section { margin-bottom: 24px; }
 .field-section legend { font-weight: 600; color: var(--ink); }
 .setup-choice legend { font-size: 14px; }
-.choice-card { border-radius: 6px; padding: 14px 12px; }
+.choice-card { padding: 14px 12px; }
+/* One interaction system for setup-mode and interview-style radio cards. */
+:is(.choice-card, .style-choice) { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); box-shadow: none; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
+:is(.choice-card, .style-choice) input[type="radio"] { accent-color: var(--accent); cursor: pointer; }
+@media (hover: hover) {
+  :is(.choice-card, .style-choice):hover:not(:has(input:checked)) { background: color-mix(in srgb, var(--surface) 50%, var(--soft-accent)); border-color: var(--accent); }
+}
+:is(.choice-card, .style-choice):has(input:checked) { background: var(--soft-accent); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+:is(.choice-card, .style-choice):has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
 .choice-card strong { font: 600 14px/1.4 var(--sans); letter-spacing: 0; margin-bottom: 5px; }
 .choice-card span span { font-size: 12px; line-height: 1.5; }
-.choice-card:has(input:checked) { background: var(--soft-accent); }
 label { font-size: 13px; }
 .optional, .field-hint, .config-summary { font-size: 12px; }
 textarea { font: 14px/1.6 var(--sans); min-height: 90px; background: var(--surface); }
