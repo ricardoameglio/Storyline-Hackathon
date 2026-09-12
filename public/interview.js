@@ -6,6 +6,44 @@
  */
 
 const SILENCE_MS = 2200;
+
+/* How people actually speak, turned into readable text.
+ *
+ * The browser returns a naked stream of words with no punctuation, so a long
+ * answer arrives as one unbreathable sentence and every quote pulled from it
+ * reads like one too. Chrome finalises a segment whenever the speaker pauses,
+ * so the gap between finalised segments is a fair proxy for the pause itself:
+ * a beat is a comma, a breath is a full stop. */
+const COMMA_PAUSE_MS = 420;
+const PERIOD_PAUSE_MS = 950;
+let lastFinalAt = 0;
+
+/** Glue a newly finalised chunk on, punctuating by how long they paused. */
+function appendSpoken(existing, chunk) {
+  const now = Date.now();
+  const gap = lastFinalAt ? now - lastFinalAt : 0;
+  lastFinalAt = now;
+
+  const piece = String(chunk).trim();
+  if (!piece) return existing;
+
+  const out = String(existing).trimEnd();
+  if (!out) return capitalise(piece);
+  if (/[.,!?;:]$/.test(out)) {
+    return out + " " + (/[.!?]$/.test(out) ? capitalise(piece) : piece);
+  }
+  if (gap >= PERIOD_PAUSE_MS) return out + ". " + capitalise(piece);
+  if (gap >= COMMA_PAUSE_MS) return out + ", " + piece;
+  return out + " " + piece;
+}
+
+const capitalise = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
+
+/** A spoken answer ends somewhere — close the last sentence before sending it. */
+function finishSentence(t) {
+  const clean = String(t).trim().replace(/\s+([,.])/g, "$1");
+  return !clean || /[.!?]$/.test(clean) ? clean : clean + ".";
+}
 const OPERATOR = new URLSearchParams(location.search).has("operator");
 const interviewId = location.pathname.split("/").pop();
 
@@ -243,7 +281,7 @@ function buildRecognizer() {
     interimText = "";
     for (let i = ev.resultIndex; i < ev.results.length; i++) {
       const res = ev.results[i];
-      if (res.isFinal) finalText += res[0].transcript + " ";
+      if (res.isFinal) finalText = appendSpoken(finalText, res[0].transcript);
       else interimText += res[0].transcript;
     }
     paintHeard();
@@ -270,6 +308,7 @@ function startListening() {
   if (mode === "text") return;
   el.err.textContent = "";
   finalText = ""; interimText = "";
+  lastFinalAt = 0;
   paintHeard();
   if (!supported()) {
     el.hint.textContent = T.noSpeech;
@@ -413,6 +452,14 @@ function afterQuestion() {
 }
 
 async function submitAnswer() {
+  if (awaitingConsent) {
+    const spoken = finishSentence(
+      interimText.trim() ? appendSpoken(finalText, interimText) : finalText,
+    );
+    stopListening();
+    if (!spoken.trim()) { startListening(); return; }
+    return submitSpokenConsent(spoken);
+  }
   if (busy) return;
 
   let text;
@@ -420,7 +467,9 @@ async function submitAnswer() {
     text = (el.typedText?.value ?? "").trim();
     if (!text) { el.typedText?.focus(); return; }
   } else {
-    text = (finalText + " " + interimText).trim();
+    text = finishSentence(
+      interimText.trim() ? appendSpoken(finalText, interimText) : finalText,
+    );
     stopListening();
     if (!text) { startListening(); return; }
   }
@@ -442,6 +491,14 @@ async function submitAnswer() {
     if (!r.ok) throw new Error(data.error || "Something broke.");
     if (data.assignment) assignment = data.assignment;
     phase = data.interview?.phase || phase;
+
+    // The screener ended it: one neutral line, then stop. No write-up, no PDF.
+    if (data.ended || !data.question) {
+      busy = false;
+      el.next.disabled = false;
+      if (data.say) await say(data.say);
+      return showEnd(data.interview);
+    }
 
     const q = data.question;
     logTurn("q", q.question, q.reasoning, q.move);
@@ -484,6 +541,7 @@ function showEnd(data = completedInterview) {
       $("chooseRecord").innerHTML = "<strong>En el archivo público</strong><span>Permite que esta entrevista aparezca en The Wall, nuestro archivo visible.</span>";
     }
     $("consentTitle").focus();
+    askConsentAloud();
     return;
   }
   $("consent").hidden = true;
@@ -505,11 +563,82 @@ function showEnd(data = completedInterview) {
   el.endStats.textContent = mins === 0
     ? (language === "es" ? `${questionCount} preguntas en menos de un minuto.` : `${questionCount} questions in under a minute.`)
     : T.stats(questionCount, mins);
+  if (data?.endedReason === "screened") {
+    if (el.writing) {
+      el.writing.textContent = language === "es"
+        ? "Esta entrevista se cerró antes de tiempo, así que no se redactó nada y queda privada."
+        : "This interview was ended early, so nothing was written up and it stays private.";
+    }
+    if (el.endBar) el.endBar.hidden = true;
+    if (el.mailForm) el.mailForm.hidden = true;
+    $("viewWall").hidden = true;
+    return;
+  }
   copyTries = 0;
   waitForCopy();
 }
 
+let awaitingConsent = false;
+
+/**
+ * Ask it in the interviewer's own voice and listen for the answer. The two
+ * buttons stay on screen as a fallback — but nobody should have to click to
+ * answer a question a person just asked them out loud.
+ */
+async function askConsentAloud() {
+  if (awaitingConsent) return;
+  awaitingConsent = true;
+  try {
+    const r = await fetch(`/api/interviews/${interviewId}/consent-prompt`);
+    const { question } = await r.json();
+    if (!question) return;
+    await say(question);
+    if (mode !== "text") {
+      $("consentStatus").textContent = language === "es"
+        ? "Contéstame en voz alta, o toca una opción."
+        : "Answer out loud, or tap an option.";
+      startListening();
+    }
+  } catch {
+    awaitingConsent = false;
+  }
+}
+
+/** Their spoken answer to the visibility question. */
+async function submitSpokenConsent(text) {
+  stopListening();
+  $("consentError").textContent = "";
+  $("consentStatus").textContent = language === "es" ? "Un momento…" : "One moment…";
+  try {
+    const r = await fetch(`/api/interviews/${interviewId}/consent-voice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || T.failed);
+
+    // Too vague to act on. Ask again rather than guess about someone's privacy.
+    if (data.unclear) {
+      $("consentStatus").textContent = "";
+      await say(data.say);
+      if (mode !== "text") startListening();
+      return;
+    }
+    awaitingConsent = false;
+    $("consentStatus").textContent = "";
+    if (data.say) await say(data.say);
+    showEnd(data);
+  } catch (e) {
+    $("consentStatus").textContent = "";
+    $("consentError").textContent = e.message;
+    if (mode !== "text") startListening();
+  }
+}
+
 async function chooseVisibility(visibility) {
+  awaitingConsent = false;
+  stopListening();
   $("choosePrivate").disabled = $("chooseRecord").disabled = true;
   $("consentError").textContent = "";
   $("consentStatus").textContent = language === "es" ? "Guardando tu elección…" : "Saving your choice…";

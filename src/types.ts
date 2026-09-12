@@ -81,12 +81,22 @@ export interface Interview {
   /** Missing consent on older records is always private. */
   visibility?: "private" | "on-the-record";
   consentAt?: number;
+  /**
+   * Set when the screener ended it. Such an interview is forced private, never
+   * written up, and never reaches The Wall.
+   */
+  endedReason?: "screened";
   rawTranscript?: string;
   cleanTranscript?: string;
   transcriptCleanup?: "cleaned" | "fallback";
   turns: Turn[];
   /** beat -> covered */
   beatsCovered: Record<string, boolean>;
+  /**
+   * Beats whose premise this person killed — a student has no customers, a shop
+   * that opened today has no hardest year. Dropped, and never asked again.
+   */
+  beatsDropped?: Record<string, boolean>;
 }
 
 /** Something the copy claimed that the transcript does not actually support. */

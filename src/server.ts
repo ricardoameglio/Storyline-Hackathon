@@ -4,11 +4,21 @@ import { pathToFileURL } from "node:url";
 import { join } from "node:path";
 import { preflight } from "./anthropic.ts";
 import { generateContent } from "./content.ts";
-import { greeting, intakeOpener, intakeQuestion, nextQuestion } from "./interviewer.ts";
+import {
+  alreadyAsked,
+  classifyConsent,
+  consentQuestion,
+  consentThanks,
+  greeting,
+  intakeOpener,
+  intakeQuestion,
+  nextQuestion,
+} from "./interviewer.ts";
 import { id, store } from "./store.ts";
 import { preflightTts, speak, ttsEnabled } from "./tts.ts";
 import type { Assignment, Deliverable, Interview, Language } from "./types.ts";
 import { isOnTheRecord, recordConsent } from "./visibility.ts";
+import { screenAnswer, screenedGoodbye } from "./safety.ts";
 import { summaryText } from "./results.ts";
 import { interviewPdf } from "./pdf.ts";
 import { emailEnabled, sendSummaryEmail } from "./email.ts";
@@ -228,6 +238,34 @@ app.get("/api/interviews/:iid", (req, res) => {
   });
 });
 
+/**
+ * The interviewer curates its own brief as it goes: it drops the beats this
+ * person killed and writes new ones that fit them, so a generic list becomes
+ * their interview instead of a checklist that does not apply.
+ */
+function applyBeatChanges(
+  interview: Interview,
+  assignment: Assignment,
+  q: { beats_to_drop?: string[]; beats_to_add?: string[] },
+) {
+  for (const beat of q.beats_to_drop ?? []) {
+    if (beat in interview.beatsCovered) {
+      interview.beatsDropped = { ...(interview.beatsDropped ?? {}), [beat]: true };
+      console.log(`[beats] ${interview.id} dropped: ${beat}`);
+    }
+  }
+  for (const raw of q.beats_to_add ?? []) {
+    const beat = String(raw).trim();
+    // Capped: a runaway list of beats is its own kind of lost interview.
+    if (!beat || beat.length > 160 || beat in interview.beatsCovered) continue;
+    if (assignment.beats.length >= 12) break;
+    assignment.beats = [...assignment.beats, beat];
+    interview.beatsCovered[beat] = false;
+    console.log(`[beats] ${interview.id} added: ${beat}`);
+  }
+  if (q.beats_to_add?.length) store.putAssignment(assignment);
+}
+
 /** Anything the interviewer learned during intake lands on the assignment. */
 function applyIntake(assignment: Assignment, c: Record<string, string | undefined>) {
   const hadNoCompany = !assignment.company;
@@ -312,13 +350,42 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
   if (!text) return res.status(400).json({ error: "Empty answer." });
 
   const at = Date.now() - (interview.startedAt ?? Date.now());
+  /**
+   * End it, forced private, with no write-up. Consent is stamped so the choice
+   * screen never appears and nothing can ever promote this onto The Wall.
+   */
+  const endScreened = (reason: string) => {
+    console.log(`[screen] ${interview.id} ended: ${reason}`);
+    interview.status = "finished";
+    interview.endedAt = Date.now();
+    interview.endedReason = "screened";
+    interview.visibility = "private";
+    interview.consentAt = Date.now();
+    store.putInterview(interview);
+    return res.json({
+      interview,
+      assignment,
+      ended: true,
+      say: screenedGoodbye(assignment.language),
+    });
+  };
+
   const inIntake = (interview.phase ?? "interview") === "intake";
   interview.turns.push({ speaker: "subject", text, at, phase: inIntake ? "intake" : "interview" });
   store.putInterview(interview);
 
+  // Runs alongside the next question, so a normal interview pays no latency for
+  // it. On the rare stop the question is thrown away — one wasted call beats a
+  // pause on every single answer.
+  const screening = screenAnswer(text);
+
   try {
     if (inIntake) {
-      const step = await intakeQuestion(interview, assignment.language);
+      const [intakeVerdict, step] = await Promise.all([
+        screening,
+        intakeQuestion(interview, assignment.language),
+      ]);
+      if (intakeVerdict.stop) return endScreened(intakeVerdict.reason);
       applyIntake(assignment, step.collected ?? {});
       interview.turns.push({
         speaker: "interviewer",
@@ -361,10 +428,61 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
       });
     }
 
-    const q = await nextQuestion(assignment, interview);
+    const askedSoFar = interview.turns.filter(
+      (t) => t.speaker === "interviewer" && (t.phase ?? "interview") === "interview",
+    ).length;
+
+    // HARD question limit. Telling the model "that was your last question" is
+    // advice, and a model enjoying itself will ask five more. A promise of five
+    // questions is kept by the server or it is not kept.
+    if (assignment.maxQuestions && askedSoFar >= assignment.maxQuestions) {
+      console.log(`[limit] ${interview.id} reached ${assignment.maxQuestions} — closing`);
+      interview.status = "finished";
+      interview.endedAt = Date.now();
+      store.putInterview(interview);
+      kickOffContent(interview);
+      return res.json({ interview, assignment, limitReached: true });
+    }
+
+    const [verdict, firstDraft] = await Promise.all([
+      screening,
+      nextQuestion(assignment, interview),
+    ]);
+    if (verdict.stop) return endScreened(verdict.reason);
+    let q = firstDraft;
+
+    // Repeat catcher, across the whole interview rather than the last few turns.
+    const priorQuestions = interview.turns
+      .filter((t) => t.speaker === "interviewer" && (t.phase ?? "interview") === "interview")
+      .map((t) => t.text);
+    const repeated = alreadyAsked(q.question, priorQuestions);
+    if (repeated) {
+      console.log(`[repeat] ${interview.id} re-asked: "${repeated}" — going again`);
+      q = await nextQuestion(assignment, interview, { banned: repeated });
+    }
+
+    // It tried to go home after four questions. A two-minute conversation is not
+    // an interview, and they are still sitting there — send it back out once.
+    const floor = Math.min(
+      assignment.maxQuestions ?? 99,
+      Math.max(4, Math.round((assignment.maxQuestions ?? assignment.durationMinutes * 1.4) * 0.5)),
+    );
+    if (q.should_end && askedSoFar + 1 < floor) {
+      console.log(`[floor] ${interview.id} tried to end at ${askedSoFar + 1} of ${floor}`);
+      q = await nextQuestion(assignment, interview, { mustContinue: true });
+      q.should_end = false;
+    }
+
     for (const beat of q.beats_now_covered) {
       if (beat in interview.beatsCovered) interview.beatsCovered[beat] = true;
     }
+    applyBeatChanges(interview, assignment, q);
+
+    // Spoken as one line. Kept separate right up to this point so writing the
+    // question never had to share room with writing the transition.
+    const bridge = (q.bridge ?? "").trim();
+    if (bridge) q.question = `${bridge} ${q.question}`.replace(/\s+/g, " ").trim();
+
     interview.turns.push({
       speaker: "interviewer",
       text: q.question,
@@ -409,6 +527,45 @@ app.post("/api/interviews/:iid/consent", (req, res) => {
     store.putInterview(interview);
     kickOffContent(interview);
     res.json(interview);
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
+  }
+});
+
+/**
+ * The same choice, answered out loud. The interviewer asks it in its own voice
+ * and interprets the reply — clicking a button is the fallback, not the flow.
+ */
+app.get("/api/interviews/:iid/consent-prompt", (req, res) => {
+  const interview = store.getInterview(req.params.iid);
+  if (!interview) return res.status(404).json({ error: "No such interview." });
+  const assignment = store.getAssignment(interview.assignmentId);
+  res.json({ question: consentQuestion(assignment?.language) });
+});
+
+app.post("/api/interviews/:iid/consent-voice", async (req, res) => {
+  const interview = store.getInterview(req.params.iid);
+  if (!interview) return res.status(404).json({ error: "No such interview." });
+  const assignment = store.getAssignment(interview.assignmentId);
+  const text = String(req.body?.text ?? "").trim();
+  if (!text) return res.status(400).json({ error: "Nothing heard." });
+
+  const verdict = await classifyConsent(text, assignment?.language);
+  // Too vague to act on — ask again rather than guess about someone's privacy.
+  if (!verdict.certain) {
+    return res.json({
+      unclear: true,
+      say: consentQuestion(assignment?.language),
+    });
+  }
+
+  try {
+    recordConsent(interview, verdict.onRecord ? "on-the-record" : "private");
+    store.putInterview(interview);
+    res.json({
+      ...interview,
+      say: consentThanks(verdict.onRecord, assignment?.language),
+    });
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
   }
