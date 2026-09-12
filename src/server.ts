@@ -18,7 +18,7 @@ import {
   nextQuestion,
 } from "./interviewer.ts";
 import { id, store } from "./store.ts";
-import { preflightTts, speak, ttsEnabled } from "./tts.ts";
+import { preflightTts, speak, stripAudioTags, ttsEnabled } from "./tts.ts";
 import type { Assignment, Deliverable, Interview, Language, Tone } from "./types.ts";
 import { isOnTheRecord, questionsAsked, recordConsent } from "./visibility.ts";
 import { screenAnswer, screenedGoodbye } from "./safety.ts";
@@ -104,6 +104,18 @@ const DEFAULT_ANGLE =
   "Find the one specific story here worth telling — the moment it turned, the number nobody expects, the work people don't see.";
 const DEFAULT_ANGLE_ES =
   "Encuentra la historia específica que vale la pena contar: el momento en que giró, el número que nadie espera, el trabajo que nadie ve.";
+
+/**
+ * Split a generated line in two: the one the voice says, with its delivery cues
+ * intact, and the clean one every human and every model reads. EVERY path that
+ * produces a question goes through here — miss one and a "[laughs]" ends up
+ * printed in somebody's PDF.
+ */
+function splitDelivery<T extends { question: string; spoken?: string }>(q: T): T {
+  q.spoken = q.question;
+  q.question = stripAudioTags(q.question);
+  return q;
+}
 
 /** Professional unless they asked for the looser one. */
 const parseTone = (value: unknown): Tone => (value === "friendly" ? "friendly" : "professional");
@@ -340,7 +352,7 @@ app.post("/api/interviews/:iid/start", async (req, res) => {
       });
     }
 
-    const q = await nextQuestion(assignment, interview);
+    const q = splitDelivery(await nextQuestion(assignment, interview));
     interview.turns.push({
       speaker: "interviewer",
       text: q.question,
@@ -485,7 +497,7 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
       // Handoff: intake is over, the real interview starts on the same breath.
       interview.phase = "interview";
       store.putInterview(interview);
-      const first = await nextQuestion(assignment, interview);
+      const first = splitDelivery(await nextQuestion(assignment, interview));
       interview.turns.push({
         speaker: "interviewer",
         text: first.question,
@@ -661,6 +673,10 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
     const bridge = (q.bridge ?? "").trim();
     if (bridge) q.question = `${bridge} ${q.question}`.replace(/\s+/g, " ").trim();
 
+    // Cues go to the speaker; the clean line goes to the screen, the transcript,
+    // the PDF and the write-up.
+    splitDelivery(q);
+
     interview.turns.push({
       speaker: "interviewer",
       text: q.question,
@@ -683,18 +699,52 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
   }
 });
 
-app.post("/api/interviews/:iid/end", (req, res) => {
+/**
+ * They ended it themselves.
+ *
+ * Every other way out of an interview has Kara saying goodbye. This one did
+ * not, so the published record ended on whatever the subject's last words
+ * happened to be — and if the microphone garbled them, the last line of a
+ * document with their name on it was nonsense, with the interviewer silent
+ * underneath. Somebody who walks out still gets thanked.
+ */
+app.post("/api/interviews/:iid/end", async (req, res) => {
   const interview = store.getInterview(req.params.iid);
   if (!interview) return res.status(404).json({ error: "No such interview." });
+  const wasLive = interview.status === "live";
   const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
-  if (interview.status === "live" && text) interview.turns.push({
-    speaker: "subject", text, at: Date.now() - (interview.startedAt ?? Date.now()), phase: interview.phase ?? "interview",
+  const at = Date.now() - (interview.startedAt ?? Date.now());
+  if (wasLive && text) interview.turns.push({
+    speaker: "subject", text, at, phase: interview.phase ?? "interview",
   });
+
+  const assignment = store.getAssignment(interview.assignmentId);
+  let say: string | undefined;
+  // Only in the interview proper: an abandoned handshake has nothing to thank
+  // them for, and a goodbye there would be stranger than silence.
+  const inInterview = (interview.phase ?? "interview") === "interview";
+  const saidSomething = interview.turns.some(
+    (t) => t.speaker === "subject" && (t.phase ?? "interview") === "interview" && !t.redacted,
+  );
+  if (wasLive && assignment && inInterview && saidSomething) {
+    try {
+      const closer = splitDelivery(await nextQuestion(assignment, interview, { mustClose: true }));
+      say = closer.spoken ?? closer.question;
+      interview.turns.push({
+        speaker: "interviewer", text: closer.question, at, phase: "interview",
+        move: "close", reasoning: closer.reasoning,
+      });
+    } catch (err) {
+      // A failed goodbye must never block someone leaving.
+      console.error("[end] could not write a closing line:", (err as Error).message);
+    }
+  }
+
   interview.status = "finished";
   interview.endedAt ??= Date.now();
   store.putInterview(interview);
   kickOffContent(interview);
-  res.json(interview);
+  res.json({ ...interview, say });
 });
 
 app.post("/api/interviews/:iid/consent", (req, res) => {

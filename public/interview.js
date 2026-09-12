@@ -450,7 +450,19 @@ function bumpLevel() {
 
 /* ---------------------------------------------------------------- tts */
 
-async function say(text) {
+/**
+ * `spoken` carries the delivery cues ([laughs], [sighs]) that the expressive
+ * voice understands. They must never reach the screen — on a page they read as
+ * stage directions — so the clean text is what gets shown.
+ */
+/** Mirror of the server's cue list, for lines that arrive already spoken-ready. */
+const stripCues = (t) =>
+  String(t ?? "").replace(
+    /\[\s*(?:laughs|laughing|chuckles|giggles|sighs|exhales|inhales|breathes|pauses|whispers|shouts|excited|curious|sarcastic|amused|surprised|warmly|softly|gently|seriously)\s*\]/gi,
+    "",
+  ).replace(/\s{2,}/g, " ").trim();
+
+async function say(text, spoken) {
   stopListening();
   presentState("speaking");
   el.question.textContent = text;
@@ -458,7 +470,7 @@ async function say(text) {
     const r = await fetch("/api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, language }),
+      body: JSON.stringify({ text: spoken || text, language }),
     });
     if (r.status === 204) return browserVoice(text);
     const buf = await r.arrayBuffer();
@@ -508,7 +520,7 @@ el.start.onclick = async () => {
     await say(data.greeting);
     logTurn("q", data.question.question, data.question.reasoning, data.question.move);
     questionCount = countQuestions(data.interview);
-    await say(data.question.question);
+    await say(data.question.question, data.question.spoken);
     afterQuestion();
   } catch (e) {
     el.err.textContent = e.message;
@@ -531,6 +543,8 @@ el.finish.onclick = async () => {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || T.failed);
+    // She gets to say goodbye even when they are the ones leaving.
+    if (data.say) await say(stripCues(data.say), data.say);
     showEnd(data);
   } catch (e) {
     el.err.textContent = e.message;
@@ -605,7 +619,7 @@ async function submitAnswer() {
       el.heard.innerHTML = `<span class="ph">${T.listening}</span>`;
       el.hint.textContent = mode === "text" ? T.hintText : T.hintVoice;
       if (data.say) await say(data.say);
-      await say(q.question);
+      await say(q.question, q.spoken);
       return afterQuestion();
     }
 
@@ -630,7 +644,7 @@ async function submitAnswer() {
 
     // Handoff out of intake: one line, then straight into the first real question.
     if (data.sayFirst) await say(data.sayFirst);
-    await say(q.question);
+    await say(q.question, q.spoken);
 
     if (data.interview.status === "finished") return showEnd(data.interview);
     afterQuestion();

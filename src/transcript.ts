@@ -50,6 +50,7 @@ Return one cleaned answer for each input, in the same order and original languag
 Improve punctuation, capitalization, sentence boundaries, and paragraph breaks based on meaning.
 Keep the same words, order, numbers, names, uncertainty, negations, and casual personality.
 You may remove hesitant um/uh and accidental consecutive duplicated words, but keep deliberate emphasis.
+DO REMOVE THE STUTTER-START. Speech recognition doubles the first word of an answer constantly: "Five five years old" is one five, "I I was playing" is one I, "No no" said once is one no. Drop the repeat and keep the sentence. This is the single most common artefact in these transcripts and leaving it in makes a fluent person read as though they stammered. Only when the repetition is clearly meant — "no, no, no", "very very small" — does it stay.
 Do not paraphrase, invent facts, formalize speech, translate, or add ellipses for every pause.
 Correct grammar only through punctuation and capitalization; leave ambiguous wording alone.
 Always capitalize the first word and finish complete sentences with appropriate punctuation.
