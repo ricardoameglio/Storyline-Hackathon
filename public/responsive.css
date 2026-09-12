@@ -1,0 +1,89 @@
+/* Shared screen layout: preserve printable documents and existing theme tokens. */
+@media screen {
+  html { -webkit-text-size-adjust: 100%; }
+  body { overflow-wrap: anywhere; }
+  img, svg, video, canvas { max-width: 100%; }
+  input, textarea, select, button { max-width: 100%; }
+  button { white-space: normal; }
+  fieldset { min-width: 0; }
+  .page-shell { width: 100%; padding-inline: clamp(12px, 3vw, 48px); }
+  .masthead, .page-footer { flex-wrap: wrap; }
+  .masthead .brand { min-width: 0; }
+  .brand-icon { flex-shrink: 0; }
+  .theme-control { flex-shrink: 0; max-width: 100%; }
+  .theme-control select { min-height: 44px; }
+  .workspace > *, .panel-heading > *, .person-row > *, .choice-grid > *,
+  .style-grid > *, .setup-preferences > *, .choice-card > span,
+  .journey summary > span, .item-heading > *, .item-footer > * { min-width: 0; }
+  .choice-grid, .style-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .person-row { grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); }
+  .assignment, .wall-panel { padding: clamp(16px, 2.5vw, 30px); }
+  .panel-heading, .item-heading { flex-wrap: wrap; }
+  .journey summary { padding-block: 6px; }
+  .journey .journey-node, .journey .journey-toggle { flex-shrink: 0; }
+  .journey .journey-toggle { display: grid; place-items: center; width: 24px; height: 24px; }
+  .journey details[open] .journey-toggle { transform: rotate(45deg) scale(.7); }
+  .item-footer a, .secondary-actions a, .page-footer a {
+    display: inline-flex; align-items: center; min-height: 44px;
+  }
+  .config-summary { line-height: 1.6; }
+  .interview-page {
+    min-height: 100svh;
+    padding: clamp(16px, 3vw, 24px) clamp(12px, 3vw, 24px) max(32px, env(safe-area-inset-bottom));
+  }
+  .interview-page .wrap, .interview-page section, .interview-page .bar > *,
+  .interview-page header > *, .session-meta > * { min-width: 0; max-width: 100%; }
+  .interview-page .center { padding-block: clamp(24px, 5vh, 48px); }
+  .interview-page h1 { font-size: clamp(26px, 4vw, 42px); }
+  .interview-page .question { font-size: clamp(24px, 3.5vw, 40px); min-height: clamp(88px, 14vh, 150px); }
+  .interview-page .done h2, .interview-page .out .nail { font-size: clamp(23px, 3vw, 28px); }
+  .interview-page .out p { font-size: clamp(16px, 2vw, 18px); }
+  .session-meta { flex-wrap: wrap; gap: 8px 16px; }
+  .interview-page .heard, .interview-page .t, .interview-page .why,
+  .interview-page .out, .readable-transcript { overflow-wrap: anywhere; }
+  .interview-page .modes { display: inline-flex; max-width: 100%; }
+  .interview-page .mode { flex: 1 1 0; min-width: 0; }
+  .interview-page .log summary, #copy summary { padding-block: 10px; min-height: 44px; }
+  .consent-options { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); }
+  .consent-choice { min-width: 0; padding: clamp(16px, 3vw, 22px); }
+  .email-row input { flex: 1 1 220px; min-width: 0; width: 100%; }
+  .email-row button { flex: 0 1 auto; }
+  .secondary-actions { gap: 8px 24px; }
+}
+
+/* A sidebar is useful only when both columns have comfortable reading widths. */
+@media screen and (max-width: 1000px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); }
+  .wall-panel { border-left: 0; border-top: 1px solid var(--line); }
+  #wall { max-height: none; overflow: visible; }
+  .brand-divider, .product-label { display: none; }
+}
+
+@media screen and (max-width: 600px) {
+  input, textarea, select, .theme-control select { font-size: 16px; }
+  input, select { min-height: 44px; }
+  .setup-preferences { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .settings-disclosure { padding-top: 0; }
+  .settings-disclosure > summary { justify-content: flex-start; padding-inline: 12px; }
+  .settings-content { padding: 14px; background: var(--wash); border-radius: 6px; }
+  .interview-page header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; margin-bottom: 24px; }
+  .interview-page header .theme-control { grid-column: 1 / -1; justify-self: end; }
+  .interview-page .room-brand span { display: none; }
+  .interview-page #live > .bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .interview-page #next { grid-column: 1 / -1; }
+  .interview-page #finish { margin-left: 0; }
+  .interview-page #endBar { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .interview-page .bar button { width: 100%; }
+  .email-row button { flex: 1 1 100%; }
+  .page-footer a { display: inline-flex; }
+}
+
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .interview-page header { margin-bottom: 16px; }
+  .interview-page .center, #consent { padding-block: 16px; }
+  .interview-page .question { min-height: 0; margin-bottom: 16px; }
+}
+
+@media screen and (max-width: 520px) {
+  .choice-grid, .style-grid { grid-template-columns: minmax(0, 1fr); }
+}

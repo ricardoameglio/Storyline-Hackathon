@@ -1,5 +1,6 @@
 import { MODEL, anthropic, toolResult } from "./anthropic.ts";
-import type { Assignment, Interview, InterviewMove, Language, Turn } from "./types.ts";
+import type { Assignment, Interview, InterviewMove, InterviewType, Language, Turn } from "./types.ts";
+import { interviewStyle } from "./interview-styles.ts";
 
 /**
  * The craft rules. This is the whole product.
@@ -12,7 +13,7 @@ import type { Assignment, Interview, InterviewMove, Language, Turn } from "./typ
 const CRAFT = `
 You are a working journalist running a discovery interview. You are warm, curious,
 and genuinely interested in this person. You are not a chatbot and you are not a
-form. You have ten minutes and you want one great story out of it.
+form. Work within the configured duration and find one great story.
 
 HOW YOU ASK:
 - One question at a time. Never stack two questions together. Never offer options.
@@ -83,9 +84,8 @@ HOW YOU LISTEN:
   worth the rest of the interview.
 
 HOW YOU FINISH:
-- Around the last minute, land the plane. Ask the closer:
-  "What should I have asked you that I didn't?" It is the single best question
-  in interviewing and it almost always produces the pull quote.
+- Around the last minute, invite one final reflection or anything left unsaid.
+  Vary the wording naturally and connect it to the conversation. Do not open a new topic.
 - Then thank them by name and stop. Do not keep going.
 `.trim();
 
@@ -263,10 +263,11 @@ export async function nextQuestion(
   // clock ran out. A fast talker can burn fifteen exchanges in six minutes.
   // An explicit maxQuestions wins outright — if someone said "five questions,
   // I'm working", five is a promise, not a suggestion.
-  const turnBudget = assignment.maxQuestions
-    ? Math.max(2, assignment.maxQuestions)
-    : Math.max(6, Math.round(total * 1.4));
+  const turnBudget = assignment.maxQuestions ? Math.max(2, assignment.maxQuestions) : Infinity;
   const turnsLeft = turnBudget - asked.length;
+  const closingAnswered = Boolean(interview.closingQuestionAsked && interview.turns.at(-1)?.speaker === "subject");
+  const closing = closingAnswered || turnsLeft <= 0 ? "thanks"
+    : remaining <= 1 || turnsLeft <= 1 ? "question" : undefined;
 
   // The failure mode that kills the demo: asking the same question a third
   // time. Real journalists press once, then let it go. A subject who has
@@ -286,32 +287,30 @@ export async function nextQuestion(
   const stuckOn = recent[1]?.topic ?? "that";
 
   let clock: string;
-  if (assignment.maxQuestions && turnsLeft <= 0) {
+  if (closing === "thanks") {
+    clock = "CLOSING: They have finished their final answer. Thank them warmly, with no question, and set should_end to true. Set move to close. Stop here.";
+  } else if (closing === "question") {
     clock =
-      `You have used all ${assignment.maxQuestions} questions you were given. ` +
-      "Thank them by name and set should_end to true. Do not ask anything else.";
-  } else if (remaining <= 1.25 || turnsLeft <= 1) {
-    clock =
-      "TIME TO LAND THE PLANE. Ask the closer now if you have not: " +
-      '"What should I have asked you that I didn\'t?" If you already asked it and they answered, set should_end to true.';
+      "CLOSING: Ask exactly one concise invitation to add anything important or reflect before wrapping up. " +
+      "Vary the wording naturally, acknowledge the current thread, and do not introduce a new topic. Set move to close and should_end to false. Closing overrides all uncovered beats and follow-up rules.";
   } else if ((remaining <= total * 0.35 || turnsLeft <= 3) && uncovered.length > 1) {
-    clock = `About ${remaining.toFixed(1)} minutes and ${turnsLeft} questions left, with ${
+    clock = `About ${remaining.toFixed(1)} minutes${Number.isFinite(turnsLeft) ? ` and ${turnsLeft} questions` : ""} left, with ${
       uncovered.length
     } beats still uncovered. Start moving. Pick the most important one.`;
   } else {
     clock = `About ${remaining.toFixed(
       1,
-    )} of ${total} minutes left, roughly ${turnsLeft} questions. You have room to follow a good thread.`;
+    )} of ${total} minutes left. ${Number.isFinite(turnsLeft) ? `${turnsLeft} question slots remain, including the final invitation.` : "There is no question limit."} You have room to follow a good thread.`;
   }
 
-  if (opts.mustContinue) {
+  if (opts.mustContinue && !closing) {
     clock =
       `DO NOT END. You have asked ${asked.length} question${asked.length === 1 ? "" : "s"} ` +
       `and this is meant to run about ${total} minutes. There is far more to get.\n` +
       "Pick up a thread you left behind — something they mentioned in passing, a person, " +
       "a place, a number, a decision — or write a beat that fits this person and start it. " +
       "Do not ask a wrap-up question and do not set should_end.";
-  } else if (opts.banned) {
+  } else if (opts.banned && !closing) {
     clock +=
       `\n\nYOU JUST TRIED TO ASK THIS AGAIN: "${opts.banned}"\n` +
       "You already asked that and they already answered it. Rewording it does not make it " +
@@ -319,7 +318,7 @@ export async function nextQuestion(
       "a decision from the transcript you have not opened yet.";
   }
 
-  if (circling) {
+  if (circling && !closing) {
     clock +=
       `\n\nSTOP — your last two questions were both about "${stuckOn}" and they dodged both times. ` +
       "They are not going to give it to you, and a third ask will make them shut down. " +
@@ -348,11 +347,12 @@ fits. Dropping every beat and going home is the worst outcome available.
 THIS ASSIGNMENT
 You are interviewing ${assignment.subjectName}${
     assignment.subjectRole ? `, ${assignment.subjectRole}` : ""
-  } about ${assignment.company || "their work — they did not name a company, so find out what they actually do before you go deep"}.
+  } about ${assignment.company || (assignment.interviewType ? "their experiences and perspective; a company is not required" : "their work — they did not name a company, so find out what they actually do before you go deep")}.
+${assignment.interviewType ? `INTERVIEW LENS: ${interviewStyle(assignment.interviewType, assignment.language).angle} Follow their answers dynamically; this is a lens, not a script. For personal stories, do not require a business or professional framing.` : ""}
 The editor's angle: ${assignment.angle}
 ${assignment.backgroundNotes ? `What you know going in: ${assignment.backgroundNotes}` : ""}
 
-BEATS YOU MUST LAND (the editor needs these on the record):
+${assignment.interviewType ? "POSSIBLE THREADS (follow interesting answers rather than treating these as a checklist)" : "BEATS YOU MUST LAND (the editor needs these on the record)"}:
 ${assignment.beats
   .filter((b) => !interview.beatsDropped?.[b])
   .map((b) => `- [${interview.beatsCovered[b] ? "covered" : "open"}] ${b}`)
@@ -378,24 +378,43 @@ subject, do not invent a new name for it: ${priorTopics.join(", ") || "(none)"}
 `
     : "";
 
-  const msg = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 400,
-    system,
-    tools: [NEXT_QUESTION_TOOL],
-    tool_choice: { type: "tool", name: "ask" },
-    messages: [
-      {
-        role: "user",
-        content: `${memo}Transcript so far:\n\n${transcriptFor(
-          interview,
-        )}\n\nSay the next thing.`,
-      },
-    ],
-  });
+  let out: NextQuestion | undefined;
+  try {
+    const msg = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 400,
+      system,
+      tools: [NEXT_QUESTION_TOOL],
+      tool_choice: { type: "tool", name: "ask" },
+      messages: [
+        {
+          role: "user",
+          content: `${memo}Transcript so far:\n\n${transcriptFor(
+            interview,
+          )}\n\nSay the next thing.`,
+        },
+      ],
+    });
 
-  const out = toolResult<NextQuestion>(msg);
-  if (!out) {
+    out = toolResult<NextQuestion>(msg) ?? undefined;
+  } catch (error) {
+    if (!closing) throw error;
+  }
+  const fallbackClose = (thanks: boolean): NextQuestion => ({
+    question: assignment.language === "es"
+      ? (thanks ? "Gracias por compartir tu historia y por tu tiempo." : "Antes de terminar, ¿hay algo importante que te gustaría agregar?")
+      : (thanks ? "Thank you for sharing your story and taking the time." : "Before we wrap up, is there anything important you'd like to add?"),
+    move: "close", reasoning: "Give the interview a warm, complete ending.", topic: "closing", beats_now_covered: [], should_end: thanks,
+  });
+  if (closing || out?.move === "close" || out?.should_end) {
+    const thanks = closing === "thanks";
+    if (!out || typeof out.question !== "string" || !out.question.trim() || out.move !== "close" || out.should_end !== thanks
+      || (thanks ? /[?¿]/.test(out.question) : (out.question.match(/\?/g) ?? []).length !== 1)) out = fallbackClose(thanks);
+    out = { ...out, move: "close", should_end: thanks, beats_now_covered: Array.isArray(out.beats_now_covered) ? out.beats_now_covered : [] };
+    if (!thanks) interview.closingQuestionAsked = true;
+    return out;
+  }
+  if (!out || typeof out.question !== "string" || !out.question.trim()) {
     // Never leave a human sitting in silence. Fall back to the best generic move.
     return {
       question: "Can you give me an example of that?",
@@ -494,6 +513,7 @@ export interface IntakeStep {
 export async function intakeQuestion(
   interview: Interview,
   language?: Language,
+  interviewType?: InterviewType,
 ): Promise<IntakeStep> {
   const asked = turnsInPhase(interview).filter((t) => t.speaker === "interviewer").length;
   const pressure =
@@ -504,7 +524,9 @@ export async function intakeQuestion(
   const msg = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 400,
-    system: INTAKE + languageRule(language) + pressure,
+    system: INTAKE + languageRule(language) + pressure + (interviewType
+      ? `\nSELECTED LENS: ${interviewStyle(interviewType, language).angle} Keep this direction in the handoff. ${interviewType === "personal" ? "For this personal conversation, collect their name and what experience they want to share instead of requiring their work or business. Their name alone is enough to begin." : ""}`
+      : ""),
     tools: [INTAKE_TOOL],
     tool_choice: { type: "tool", name: "intake" },
     messages: [
@@ -614,9 +636,9 @@ export function intakeOpener(language?: Language): string {
 export function greeting(assignment: Assignment): string {
   const first = (assignment.subjectName || "").split(" ")[0];
   if (assignment.language === "es") {
-    const sobre = assignment.company?.trim() || "lo que haces";
+    const sobre = assignment.interviewType === "personal" ? "tu historia" : assignment.company?.trim() || "lo que haces";
     return `Hola ${first}, gracias por esto. Te voy a preguntar sobre ${sobre} por unos ${assignment.durationMinutes} minutos. No hay respuestas malas — habla como le hablarías a un amigo. Cuando quieras.`;
   }
-  const about = assignment.company?.trim() || "what you do";
+  const about = assignment.interviewType === "personal" ? "your story" : assignment.company?.trim() || "what you do";
   return `Hey ${first}, thanks for doing this. I'm going to ask you about ${about} for about ${assignment.durationMinutes} minutes. There are no wrong answers — just talk like you'd talk to a friend. Ready when you are.`;
 }

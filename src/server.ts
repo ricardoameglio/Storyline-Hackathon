@@ -23,6 +23,7 @@ import { summaryText } from "./results.ts";
 import { interviewPdf } from "./pdf.ts";
 import { emailEnabled, sendSummaryEmail } from "./email.ts";
 import { z } from "zod";
+import { interviewStyle, parseInterviewType } from "./interview-styles.ts";
 
 export const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -108,7 +109,11 @@ app.post("/api/assignments", (req, res) => {
   }
   const company = (b.company ?? "").trim();
   const language = lang(b.language);
+  const interviewType = parseInterviewType(b.interviewType);
+  if (b.interviewType !== undefined && !interviewType) return res.status(400).json({ error: "Choose a valid interview style." });
+  const style = interviewType ? interviewStyle(interviewType, language) : undefined;
   const assignment: Assignment = {
+    interviewType,
     id: id("asg"),
     createdAt: Date.now(),
     subjectName: b.subjectName.trim(),
@@ -116,9 +121,9 @@ app.post("/api/assignments", (req, res) => {
     company,
     language,
     angle:
-      (b.angle ?? "").trim() || (language === "es" ? DEFAULT_ANGLE_ES : DEFAULT_ANGLE),
+      (b.angle ?? "").trim() || style?.angle || (language === "es" ? DEFAULT_ANGLE_ES : DEFAULT_ANGLE),
     beats:
-      Array.isArray(b.beats) && b.beats.length ? b.beats : defaultBeats(company, language),
+      Array.isArray(b.beats) && b.beats.length ? b.beats : style?.beats ?? defaultBeats(company, language),
     deliverables: Array.isArray(b.deliverables) && b.deliverables.length
       ? b.deliverables
       : DEFAULT_DELIVERABLES,
@@ -138,14 +143,18 @@ app.post("/api/assignments", (req, res) => {
 app.post("/api/quickstart", (req, res) => {
   const b = req.body ?? {};
   const language = lang(b.language);
+  const interviewType = parseInterviewType(b.interviewType);
+  if (b.interviewType !== undefined && !interviewType) return res.status(400).json({ error: "Choose a valid interview style." });
+  const style = interviewType ? interviewStyle(interviewType, language) : undefined;
   const assignment: Assignment = {
+    interviewType,
     id: id("asg"),
     createdAt: Date.now(),
     subjectName: "",
     company: "",
     language,
-    angle: language === "es" ? DEFAULT_ANGLE_ES : DEFAULT_ANGLE,
-    beats: defaultBeats("", language),
+    angle: style?.angle ?? (language === "es" ? DEFAULT_ANGLE_ES : DEFAULT_ANGLE),
+    beats: style?.beats ?? defaultBeats("", language),
     deliverables: DEFAULT_DELIVERABLES,
     durationMinutes: Number(b.durationMinutes) || 10,
     maxQuestions: Number(b.maxQuestions) > 0 ? Number(b.maxQuestions) : undefined,
@@ -274,7 +283,7 @@ function applyIntake(assignment: Assignment, c: Record<string, string | undefine
   if (c.company?.trim()) assignment.company = c.company.trim();
   if (c.angle?.trim()) assignment.angle = c.angle.trim();
   // Beats were written around "what they do" — now we know what that is.
-  if (hadNoCompany && assignment.company)
+  if (hadNoCompany && assignment.company && !assignment.interviewType)
     assignment.beats = defaultBeats(assignment.company, assignment.language);
   store.putAssignment(assignment);
 }
@@ -299,11 +308,12 @@ app.post("/api/interviews/:iid/start", async (req, res) => {
   interview.status = "live";
   interview.startedAt = Date.now();
   interview.turns = [];
+  interview.closingQuestionAsked = false;
   store.putInterview(interview);
 
   try {
     if (interview.phase === "intake") {
-      const step = await intakeQuestion(interview, assignment.language);
+      const step = await intakeQuestion(interview, assignment.language, assignment.interviewType);
       interview.turns.push({
         speaker: "interviewer",
         text: step.question,
@@ -383,7 +393,7 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
     if (inIntake) {
       const [intakeVerdict, step] = await Promise.all([
         screening,
-        intakeQuestion(interview, assignment.language),
+        intakeQuestion(interview, assignment.language, assignment.interviewType),
       ]);
       if (intakeVerdict.stop) return endScreened(intakeVerdict.reason);
       applyIntake(assignment, step.collected ?? {});
@@ -436,12 +446,23 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
     // advice, and a model enjoying itself will ask five more. A promise of five
     // questions is kept by the server or it is not kept.
     if (assignment.maxQuestions && askedSoFar >= assignment.maxQuestions) {
+      const verdict = await screening;
+      if (verdict.stop) return endScreened(verdict.reason);
       console.log(`[limit] ${interview.id} reached ${assignment.maxQuestions} — closing`);
+      interview.turns.push({
+        speaker: "interviewer",
+        text: assignment.language === "es"
+          ? "Gracias por compartir tu historia conmigo. Ha sido un gusto escucharte."
+          : "Thank you for sharing your story with me. It has been a pleasure listening.",
+        at,
+        phase: "interview",
+        move: "close",
+      });
       interview.status = "finished";
       interview.endedAt = Date.now();
       store.putInterview(interview);
       kickOffContent(interview);
-      return res.json({ interview, assignment, limitReached: true });
+      return res.json({ interview, assignment, limitReached: true, say: interview.turns.at(-1)!.text });
     }
 
     const [verdict, firstDraft] = await Promise.all([
@@ -456,7 +477,7 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
       .filter((t) => t.speaker === "interviewer" && (t.phase ?? "interview") === "interview")
       .map((t) => t.text);
     const repeated = alreadyAsked(q.question, priorQuestions);
-    if (repeated) {
+    if (repeated && q.move !== "close") {
       console.log(`[repeat] ${interview.id} re-asked: "${repeated}" — going again`);
       q = await nextQuestion(assignment, interview, { banned: repeated });
     }
@@ -467,7 +488,7 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
       assignment.maxQuestions ?? 99,
       Math.max(4, Math.round((assignment.maxQuestions ?? assignment.durationMinutes * 1.4) * 0.5)),
     );
-    if (q.should_end && askedSoFar + 1 < floor) {
+    if (q.should_end && q.move !== "close" && askedSoFar + 1 < floor) {
       console.log(`[floor] ${interview.id} tried to end at ${askedSoFar + 1} of ${floor}`);
       q = await nextQuestion(assignment, interview, { mustContinue: true });
       q.should_end = false;
