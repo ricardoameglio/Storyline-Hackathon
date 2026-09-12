@@ -1,5 +1,6 @@
 import { EDITOR_MODEL, anthropic, toolResult } from "./anthropic.ts";
 import type { Assignment, Deliverable, GeneratedContent, Interview } from "./types.ts";
+import { prepareTranscript } from "./transcript.ts";
 
 /**
  * Prologue's own method, encoded. Their Discovery Audit looks for the "context
@@ -75,6 +76,10 @@ const CONTENT_TOOL = {
         description:
           "Three or four plain sentences recapping what the conversation actually covered, written so the person interviewed would read it and think 'yes, that's what I said'. Their story in order, no analysis, no selling. This is the receipt for the ten minutes they gave you.",
       },
+      keyTakeaways: {
+        type: "array", items: { type: "string" },
+        description: "Three concise takeaways supported by what the subject actually said. No invented advice or facts.",
+      },
       pullQuotes: {
         type: "array",
         description: "Three to five verbatim quotes, best first.",
@@ -113,7 +118,7 @@ const CONTENT_TOOL = {
           "A 60-90 second read: host intro, the clip to play (quoted verbatim with a cue), host outro.",
       },
     },
-    required: ["nail", "contextGap", "summary", "pullQuotes"],
+    required: ["nail", "contextGap", "summary", "pullQuotes", "keyTakeaways"],
   },
 };
 
@@ -226,6 +231,7 @@ const FACTCHECK_TOOL = {
       nail: { type: "string" },
       contextGap: { type: "string" },
       summary: { type: "string" },
+      keyTakeaways: { type: "array", items: { type: "string" } },
       pullQuotes: {
         type: "array",
         description:
@@ -280,7 +286,7 @@ async function factCheck(
   if (!out) return draft; // never block delivery on the checker
 
   const merged: GeneratedContent = { ...draft };
-  if (Array.isArray(out.pullQuotes) && out.pullQuotes.length) {
+  if (Array.isArray(out.pullQuotes)) {
     merged.pullQuotes = out.pullQuotes;
   }
   for (const key of [
@@ -295,6 +301,7 @@ async function factCheck(
     if (typeof out[key] === "string" && out[key]) merged[key] = out[key] as string;
   }
   if (Array.isArray(out.xThread) && out.xThread.length) merged.xThread = out.xThread;
+  if (Array.isArray(out.keyTakeaways)) merged.keyTakeaways = out.keyTakeaways;
   merged.corrections = out.corrections ?? [];
   return merged;
 }
@@ -303,11 +310,9 @@ export async function generateContent(
   assignment: Assignment,
   interview: Interview,
 ): Promise<GeneratedContent> {
-  const who = (assignment.subjectName || "SUBJECT").toUpperCase();
-  const transcript = interview.turns
-    .filter((t) => (t.phase ?? "interview") === "interview")
-    .map((t) => `${t.speaker === "interviewer" ? "INTERVIEWER" : who}: ${t.text}`)
-    .join("\n\n");
+  await prepareTranscript(assignment, interview);
+  const transcript = interview.cleanTranscript || interview.rawTranscript || "";
+  const rawTranscript = interview.rawTranscript || transcript;
 
   const wanted = assignment.deliverables.map((d) => LABELS[d]).filter(Boolean);
 
@@ -330,12 +335,15 @@ Subject: ${assignment.subjectName}${assignment.subjectRole ? `, ${assignment.sub
 ${assignment.company ? `Company: ${assignment.company}` : "Company: not given — take it from the transcript, and do not invent a business name."}
 Angle: ${assignment.angle}
 
-Fill these fields: nail, contextGap, summary, pullQuotes${
+Fill these fields: nail, contextGap, summary, keyTakeaways, pullQuotes${
           wanted.length ? `, ${wanted.filter((w) => w !== "pullQuotes").join(", ")}` : ""
         }. Leave every other field out.
 
-TRANSCRIPT
-${transcript}`,
+CLEAN TRANSCRIPT — use for the story and summary
+${transcript}
+
+RAW TRANSCRIPT — all direct quotations must come from these original words
+${rawTranscript}`,
       },
     ],
   });
@@ -344,7 +352,7 @@ ${transcript}`,
   if (!draft) throw new Error("The editor returned nothing usable.");
 
   try {
-    return await factCheck(transcript, draft, assignment.language === "es");
+    return await factCheck(rawTranscript, draft, assignment.language === "es");
   } catch (err) {
     console.error("[factcheck] failed, delivering the unchecked draft:", err);
     return draft;
