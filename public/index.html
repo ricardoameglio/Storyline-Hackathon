@@ -3,102 +3,167 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Prologue Interviewer · Console</title>
-<style>
-  :root{ --paper:#F4F1EA; --ink:#17150F; --muted:#6B6455; --accent:#B4410E; --line:#DDD6C7; --card:#FFFDF8; }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);
-    font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:28px 20px 64px}
-  .wrap{max-width:980px;margin:0 auto}
-  h1{font:400 30px/1.2 ui-serif,Georgia,serif;margin:0 0 4px}
-  .sub{color:var(--muted);margin:0 0 28px;font-size:14px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-  @media(max-width:760px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
-  h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
-  label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
-  input,textarea{width:100%;font:inherit;padding:9px 11px;border:1px solid var(--line);
-    border-radius:8px;background:#fff;color:var(--ink)}
-  textarea{min-height:72px;resize:vertical}
-  button{font:inherit;font-weight:550;border-radius:9px;padding:10px 18px;border:1px solid var(--ink);
-    background:var(--ink);color:var(--paper);cursor:pointer;margin-top:16px}
-  button.ghost{background:transparent;color:var(--ink)}
-  button:disabled{opacity:.4;cursor:default}
-  .stats{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:22px}
-  .stat b{display:block;font:400 32px/1 ui-serif,Georgia,serif}
-  .stat span{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-  .link{background:#fff;border:1px dashed var(--accent);border-radius:9px;padding:12px;
-    margin-top:14px;font-size:13px;word-break:break-all}
-  .link a{color:var(--accent)}
-  #qr{margin-top:12px;display:flex;justify-content:center}
-  .row{border-top:1px solid var(--line);padding:14px 0}
-  .row:first-of-type{border-top:0}
-  .row .who{font-weight:600}
-  .row .meta{font-size:12px;color:var(--muted)}
-  .row .nail{font:400 17px/1.35 ui-serif,Georgia,serif;margin-top:6px}
-  .row .q{font-size:13px;color:var(--muted);font-style:italic;margin-top:4px}
-  .empty{color:var(--muted);font-size:14px}
-</style>
+<title>Prologue · Interviewer</title>
+<script src="/theme.js"></script>
+<link rel="stylesheet" href="/interviewer-studio.css" />
+<link rel="stylesheet" href="/product.css" />
+<link rel="stylesheet" href="/responsive.css" />
+<link rel="stylesheet" href="/selects.css" />
+<script src="/selects.js" defer></script>
 </head>
 <body>
-<div class="wrap">
-  <h1>Prologue Interviewer</h1>
-  <p class="sub">Hand out an assignment. Get back copy. The interview runs itself.</p>
+<a class="skip-link" href="#assignmentForm">Skip to the assignment</a>
+<div class="page-shell">
+  <header class="masthead">
+    <a class="brand" href="/" aria-label="Prologue home"><span class="brand-logo" aria-hidden="true"><img src="/prologue-logo.png" alt="" width="1254" height="1254" /></span>prologue<span class="brand-divider" aria-hidden="true"></span><span class="product-label">Story Studio</span></a>
+    <label class="theme-control" for="themeChoice">Theme<select id="themeChoice"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
 
-  <div class="grid">
-    <div class="card">
-      <h2>New assignment</h2>
-      <label>Who are we talking to</label>
-      <input id="subjectName" placeholder="Marcus Webb" />
-      <label>Their role</label>
-      <input id="subjectRole" placeholder="owner" />
-      <label>Business</label>
-      <input id="company" placeholder="Red Bird Tacos" />
-      <label>The angle, in one sentence</label>
-      <textarea id="angle" placeholder="Why a line forms outside a stall nobody advertises."></textarea>
-      <label>Minutes</label>
-      <input id="durationMinutes" type="number" value="10" min="2" max="30" />
-      <button id="go">Create &amp; open room</button>
-      <div id="out"></div>
+  </header>
+  <main>
+    <header class="page-intro">
+      <h1>Your story starts here.</h1>
+      <p class="intro-copy">Turn a conversation into something worth sharing.</p>
+    </header>
+    <div class="workspace">
+      <section class="assignment" aria-labelledby="assignmentTitle">
+        <div class="panel-heading"><h2 id="assignmentTitle">Interview setup</h2></div>
+        <form id="assignmentForm" novalidate>
+    <fieldset class="setup-choice">
+      <legend>How would you like to start?</legend>
+      <div class="choice-grid">
+        <label class="choice-card"><input type="radio" name="setupMode" id="manualMode" value="manual" checked /><span><strong>Fill in the brief</strong><span>Add the person and story direction.</span></span></label>
+        <label class="choice-card"><input type="radio" name="setupMode" id="guidedMode" value="guided" /><span><strong>Let the interviewer ask</strong><span>Skip the brief. Start with a few questions.</span></span></label>
+      </div>
+    </fieldset>
+    <div id="guidedIntro" class="guided-intro" hidden><p>Create a room for yourself or a guest. The interviewer will collect the details.</p></div>
+    <fieldset id="personFields" class="field-section">
+            <legend><span class="section-number">01</span> Person</legend>
+            <div class="person-row">
+              <div class="field"><label for="subjectName">Who are we talking to? <span class="required">*</span></label><input id="subjectName" name="subjectName" placeholder="e.g. Marcus Webb" autocomplete="name" required /></div>
+              <div class="field"><label for="subjectRole">Their role <span class="optional">Optional</span></label><input id="subjectRole" name="subjectRole" placeholder="e.g. Owner, founder, researcher" /></div>
+            </div>
+            <div class="field"><label for="company">Business <span class="optional">Optional</span></label><input id="company" name="company" placeholder="e.g. Red Bird Tacos" /></div>
+          </fieldset>
+    <fieldset id="storyFields" class="field-section story-direction">
+            <legend>Interview style</legend>
+            <div class="style-grid">
+              <label class="style-choice"><input type="radio" name="interviewType" id="styleCareer" value="career" /><span><strong>Career Journey</strong><small>Choices, turning points and growth.</small></span></label>
+              <label class="style-choice"><input type="radio" name="interviewType" id="styleFounder" value="founder" /><span><strong>Founder Story</strong><small>Origins, customers and breakthroughs.</small></span></label>
+              <label class="style-choice"><input type="radio" name="interviewType" id="stylePersonal" value="personal" checked /><span><strong>Personal Story</strong><small>Experiences, people and meaning.</small></span></label>
+              <label class="style-choice"><input type="radio" name="interviewType" id="styleExpert" value="expert" /><span><strong>Expert Insight</strong><small>Perspectives and ideas worth sharing.</small></span></label>
+            </div>
+          </fieldset>
+          <div class="setup-preferences">
+              <div class="field"><label for="language">Language</label><select id="language" name="language"><option value="en">English</option><option value="es">Español</option></select></div>
+              <details id="settingsPanel" class="settings-disclosure">
+                <summary><svg class="settings-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9.5 3h5l.7 2.8 2.5 1.4 2.8-.8 2.5 4.3-2.1 2v2.8l2.1 2-2.5 4.3-2.8-.8-2.5 1.4-.7 2.8h-5l-.7-2.8-2.5-1.4-2.8.8L1 17.5l2.1-2v-2.8l-2.1-2 2.5-4.3 2.8.8 2.5-1.4z" transform="translate(2 0) scale(.8333)"/><circle cx="12" cy="12" r="3"/></svg> Settings</summary>
+                <div class="settings-content">
+                  <div class="field"><label for="durationMinutes">Duration (minutes)</label><input id="durationMinutes" name="durationMinutes" type="number" value="10" min="2" max="30" step="1" required /></div>
+                  <div class="field"><label for="questionLimit">Question limit</label><select id="questionLimit"><option value="unlimited">Unlimited</option><option value="limited">Set a limit</option></select></div>
+                  <div id="questionCountField" class="field" hidden><label for="maxQuestions">Maximum questions</label><input id="maxQuestions" name="maxQuestions" type="number" value="10" min="2" max="40" step="1" disabled /></div>
+                </div>
+              </details>
+          </div>
+          <div class="start-action"><button id="go" type="submit">Create interview room <span aria-hidden="true">→</span></button><button id="quick" type="button" hidden>Create self-serve room <span aria-hidden="true">→</span></button><p id="configSummary" class="config-summary">English · 10 min · Unlimited questions</p></div>
+        </form>
+        <p id="formError" class="form-error" role="alert"></p>
+        <p id="requestStatus" class="request-status" role="status"></p>
+      </section>
+      <aside class="wall-panel" aria-labelledby="previewTitle">
+        <section class="brief-preview" aria-labelledby="previewTitle">
+          <p class="eyebrow">Your brief</p><h3 id="previewTitle">Behind every person is a story worth telling.</h3><p id="previewPerson" class="preview-person" hidden></p><p id="previewAngle">Personal Story · Discover the moments and experiences that shaped their journey.</p><p id="previewSettings" class="preview-settings">10 min · English · No question limit</p>
+        </section>
+        <section class="how-it-works" aria-labelledby="howTitle"><h3 id="howTitle">Your interview journey</h3><ol class="journey">
+          <li><details><summary><span class="journey-node" aria-hidden="true">01</span><span><strong>Brief</strong><small>Choose a direction</small></span><span class="journey-toggle" aria-hidden="true">+</span></summary><p>Choose a style and add the person, or let the interviewer ask.</p></details></li>
+          <li><details><summary><span class="journey-node" aria-hidden="true">02</span><span><strong>Conversation</strong><small>Have the conversation</small></span><span class="journey-toggle" aria-hidden="true">+</span></summary><p>Answer by voice or text while the interviewer listens and follows up.</p></details></li>
+          <li><details><summary><span class="journey-node" aria-hidden="true">03</span><span><strong>Discovery</strong><small>Find what matters</small></span><span class="journey-toggle" aria-hidden="true">+</span></summary><p>Specific moments and unexpected threads bring your story into focus.</p></details></li>
+          <li><details><summary><span class="journey-node" aria-hidden="true">04</span><span><strong>Story</strong><small>Take it with you</small></span><span class="journey-toggle" aria-hidden="true">+</span></summary><p>Choose what stays private, then take your summary, quotes and story with you.</p></details></li>
+        </ol></section>
+        <section class="archive-section" aria-labelledby="wallTitle">
+        <h2 id="wallTitle">Interview archive</h2>
+        <div class="stats" id="stats" aria-label="Interview statistics"></div>
+        <details class="archive-disclosure">
+          <summary><span>On the record</span><span class="archive-toggle" aria-hidden="true"></span></summary>
+          <p id="wallStatus" role="status">Loading…</p>
+          <div id="wall" tabindex="0" role="region" aria-label="Saved interviews"></div>
+        </details>
+        </section>
+      </aside>
     </div>
-
-    <div class="card">
-      <h2>The wall</h2>
-      <div class="stats" id="stats"></div>
-      <div id="wall" class="empty">Nothing finished yet.</div>
-    </div>
-  </div>
+  </main>
+  <footer class="page-footer"><span>prologue</span><a href="#assignmentForm">Back to the brief ↑</a></footer>
 </div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
+let setupMode = "manual";
+function setSetupMode(mode) {
+  if ($("go").disabled) return;
+  setupMode = mode;
+  const guided = mode === "guided";
+  $("manualMode").checked = !guided;
+  $("guidedMode").checked = guided;
+  for (const id of ["personFields"]) {
+    $(id).hidden = $(id).disabled = guided;
+  }
+  $("guidedIntro").hidden = !guided;
+  $("go").hidden = guided;
+  $("quick").hidden = !guided;
+  $("formError").textContent = "";
+  updateBrief();
+}
+$("manualMode").addEventListener("change", () => setSetupMode("manual"));
+$("guidedMode").addEventListener("change", () => setSetupMode("guided"));
 
-$("go").onclick = async () => {
+$("assignmentForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (setupMode === "guided") $("quick").onclick();
+  else createAssignment();
+});
+
+async function createAssignment() {
+  if ($("go").disabled || !validSettings() || !$("assignmentForm").reportValidity()) return;
   const body = {
     subjectName: $("subjectName").value.trim(),
     subjectRole: $("subjectRole").value.trim() || undefined,
     company: $("company").value.trim(),
-    angle: $("angle").value.trim(),
+    interviewType: selectedStyle(),
     durationMinutes: Number($("durationMinutes").value) || 10,
+    maxQuestions: selectedQuestionLimit(),
+    language: $("language").value,
   };
-  if (!body.subjectName || !body.company || !body.angle) {
-    $("out").innerHTML = '<div class="link">Name, business and angle are required.</div>';
+  if (!body.subjectName) {
+    $("formError").textContent = "Who are we talking to? Add a name to start.";
+    $("subjectName").focus();
     return;
   }
-  $("go").disabled = true;
+  setCreating(true, false);
   try {
     const a = await post("/api/assignments", body);
     const i = await post("/api/interviews", { assignmentId: a.id });
-    $("out").innerHTML =
-      `<div class="link">Hand them this:<br><a href="${i.url}" target="_blank">${i.url}</a>
-       <br><br><a href="${i.url}?operator=1" target="_blank">open with live reasoning →</a></div>
-       <div id="qr"></div>`;
-    new QRCode($("qr"), { text: i.url, width: 148, height: 148, colorDark: "#17150F", colorLight: "#FFFDF8" });
+    openRoom(i);
   } catch (e) {
-    $("out").innerHTML = `<div class="link">${e.message}</div>`;
+    $("formError").textContent = e.message;
+    $("requestStatus").textContent = "";
+    setCreating(false, false);
   }
-  $("go").disabled = false;
+};
+
+$("quick").onclick = async () => {
+  if ($("quick").disabled || !validSettings()) return;
+  setCreating(true, true);
+  try {
+    const i = await post("/api/quickstart", {
+      interviewType: selectedStyle(),
+      durationMinutes: Number($("durationMinutes").value) || 10,
+      maxQuestions: selectedQuestionLimit(),
+      language: $("language").value,
+    });
+    openRoom(i);
+  } catch (e) {
+    $("formError").textContent = e.message;
+    $("requestStatus").textContent = "";
+    setCreating(false, true);
+  }
 };
 
 async function post(path, body) {
@@ -108,29 +173,130 @@ async function post(path, body) {
   return d;
 }
 
+let lastWall = "";
+
 async function wall() {
   try {
-    const w = await (await fetch("/api/wall")).json();
+    const response = await fetch("/api/wall");
+    if (!response.ok) throw new Error("Collection unavailable");
+    const w = await response.json();
+    $("wallStatus").textContent = "Updated automatically";
+    const signature = JSON.stringify(w);
+    if (signature === lastWall) return;
+    lastWall = signature;
     const s = w.stats;
     $("stats").innerHTML = [
-      ["interviews", s.interviewsFinished],
-      ["minutes on the record", s.minutesOnTheRecord],
-      ["questions asked", s.questionsAsked],
-    ].map(([label, n]) => `<div class="stat"><b>${n}</b><span>${label}</span></div>`).join("");
+      ["Interviews", s.interviewsFinished],
+      ["Minutes recorded", s.minutesOnTheRecord],
+      ["Questions asked", s.questionsAsked],
+    ].map(([label, n]) => `<div class="stat"><b>${esc(n)}</b><span>${label}</span></div>`).join("");
 
-    $("wall").className = w.rows.length ? "" : "empty";
+    // /api/wall only returns completed interviews. Do not invent roles or angles.
     $("wall").innerHTML = w.rows.length
-      ? w.rows.map((r) => `
-          <div class="row">
-            <div class="who">${esc(r.subject || "")} <span class="meta">· ${esc(r.company || "")}</span></div>
-            <div class="meta">${r.minutes} min · ${r.questions} questions</div>
-            ${r.nail ? `<div class="nail">${esc(r.nail)}</div>` : ""}
-            ${r.topQuote ? `<div class="q">“${esc(r.topQuote)}”</div>` : ""}
-          </div>`).join("")
-      : "Nothing finished yet.";
-  } catch {}
+      ? w.rows.map((r) => `<article class="interview-item">
+          <div class="item-heading"><span class="item-label">Interview</span><span class="completion">Completed</span></div>
+          <h3>${esc(r.subject || "Untitled interview")}</h3>
+          ${r.company ? `<p class="item-company">${esc(r.company)}</p>` : ""}
+          ${r.nail ? `<p class="item-nail">${esc(r.nail)}</p>` : ""}
+          ${r.topQuote ? `<blockquote>“${esc(r.topQuote)}”</blockquote>` : ""}
+          <div class="item-footer"><span>${esc(r.minutes)} min <span aria-hidden="true">·</span> ${esc(r.questions)} questions</span><a href="/i/${encodeURIComponent(r.interviewId)}?operator=1">Open interview <span aria-hidden="true">↗</span></a></div>
+        </article>`).join("")
+      : '<div class="archive-empty"><h3>No interviews yet</h3><p>Completed interviews will appear here.</p></div>';
+  } catch {
+    $("wallStatus").textContent = "Unable to refresh · retrying shortly";
+  }
 }
-const esc = (s) => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function validSettings() {
+  for (const id of ["durationMinutes", "maxQuestions", "language"]) {
+    const input = $(id);
+    if (input.disabled || input.validity.valid) continue;
+    if (id !== "language") $("settingsPanel").open = true;
+    input.focus();
+    input.reportValidity();
+    return false;
+  }
+  return true;
+}
+
+function setCreating(active, quick) {
+  $("go").disabled = $("quick").disabled = active;
+  $("manualMode").disabled = $("guidedMode").disabled = active;
+  $("assignmentForm").setAttribute("aria-busy", String(active));
+  const loading = '<span class="creation-spinner" aria-hidden="true"></span> Creating room…';
+  $("go").innerHTML = active && !quick ? loading : 'Create interview room <span aria-hidden="true">→</span>';
+  $("quick").innerHTML = active && quick ? loading : 'Create self-serve room <span aria-hidden="true">→</span>';
+  if (active) {
+    $("formError").textContent = "";
+    $("requestStatus").textContent = "Preparing a room for your conversation…";
+  }
+}
+
+function openRoom(interview) {
+  if (typeof interview.url !== "string" || !interview.url.trim()) throw new Error("The room link is missing. Please try again.");
+  const url = new URL(interview.url, location.origin);
+  if (!["http:", "https:"].includes(url.protocol)) throw new Error("The room link is invalid. Please try again.");
+  location.assign(url.href);
+}
+
+function updateBrief() {
+  const name = $("subjectName").value.trim();
+  const role = $("subjectRole").value.trim();
+  const business = $("company").value.trim();
+  const style = { career: "Career Journey", founder: "Founder Story", personal: "Personal Story", expert: "Expert Insight" }[selectedStyle()];
+  const description = {
+    career: "Explore the choices, turning points and growth that shaped their career.",
+    founder: "Discover the origins, challenges and breakthroughs behind their business.",
+    personal: "Discover the moments and experiences that shaped their journey.",
+    expert: "Explore the perspectives, knowledge and ideas they want to share.",
+  }[selectedStyle()];
+  const validMinutes = $("durationMinutes").validity.valid && $("durationMinutes").value;
+  const validQuestions = $("questionLimit").value !== "limited" || $("maxQuestions").validity.valid;
+  const questionValue = selectedQuestionLimit();
+  const language = $("language").selectedOptions[0].textContent;
+  const summary = [
+    language,
+    validMinutes ? `${$("durationMinutes").value} min` : "Choose 2–30 minutes",
+    validQuestions ? (questionValue ? `Up to ${questionValue} questions` : "Unlimited questions") : "Choose 2–40 questions",
+  ].join(" · ");
+  $("configSummary").textContent = $("previewSettings").textContent = summary;
+  if (setupMode === "guided") {
+    $("previewTitle").textContent = "Your story starts in the room.";
+    $("previewPerson").hidden = true;
+    $("previewAngle").textContent = `${style} · ${description}`;
+    return;
+  }
+  $("previewTitle").textContent = name ? `A conversation with ${name}.` : "Behind every person is a story worth telling.";
+  $("previewPerson").textContent = [role, business].filter(Boolean).join(" · ");
+  $("previewPerson").hidden = !role && !business;
+  $("previewAngle").textContent = `${style} · ${description}`;
+}
+function selectedStyle() {
+  return ["styleCareer", "styleFounder", "stylePersonal", "styleExpert"].map($).find(input => input.checked)?.value || "personal";
+}
+function selectedQuestionLimit() {
+  return $("questionLimit").value === "limited" ? Number($("maxQuestions").value) || undefined : undefined;
+}
+function syncQuestionLimit() {
+  const limited = $("questionLimit").value === "limited";
+  $("questionCountField").hidden = !limited;
+  $("maxQuestions").disabled = !limited;
+  $("maxQuestions").required = limited;
+  updateBrief();
+}
+$("questionLimit").addEventListener("change", syncQuestionLimit);
+window.addEventListener("pageshow", () => {
+  // Browsers can restore form values and disabled buttons after Back navigation.
+  setCreating(false, $("guidedMode").checked);
+  setSetupMode($("guidedMode").checked ? "guided" : "manual");
+  syncQuestionLimit();
+  $("requestStatus").textContent = "";
+});
+$("assignmentForm").addEventListener("input", updateBrief);
+$("assignmentForm").addEventListener("change", updateBrief);
+updateBrief();
 wall(); setInterval(wall, 5000);
 </script>
 </body>

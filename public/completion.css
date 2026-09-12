@@ -1,0 +1,26 @@
+#consent { padding: 48px 0; }
+#consent h1 { max-width: 680px; margin-bottom: 28px; font-size: clamp(24px, 3vw, 32px); line-height: 1.35; }
+#consentTitle:focus { outline: none; }
+.consent-options { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.consent-choice { text-align: left; display: flex; flex-direction: column; gap: 10px; padding: 22px; height: 100%; border-color: var(--line); }
+.consent-choice strong { font-size: 17px; }
+.consent-choice span { font-weight: 400; font-size: 14px; color: var(--muted); line-height: 1.6; }
+.consent-choice:hover { border-color: var(--ink); }
+.visibility-label { font-size: 13px; font-weight: 600; margin: 20px 0 0; }
+.visibility-label + .hint { margin-top: 4px; }
+.secondary-actions { padding: 24px 0; border-top: 1px solid var(--line); justify-content: space-between; }
+.secondary-actions a { font-size: 14px; color: var(--ink); }
+#endBar { gap: 8px; }
+#endBar button { font-size: 13px; padding: 10px 14px; }
+#emailForm { margin-top: 20px; }
+#emailForm label { display: block; font-size: 13px; margin-bottom: 8px; }
+.email-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.email-row input { flex: 1; min-width: 180px; font: inherit; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
+#copy ol { padding-left: 22px; }
+#copy li { margin-bottom: 10px; }
+#copy details { margin-top: 20px; }
+#copy summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+.readable-transcript { white-space: pre-wrap; font-size: 15px; line-height: 1.8; overflow-wrap: anywhere; }
+#thanks { overflow-wrap: anywhere; }
+@media (max-width: 520px) { .consent-options { grid-template-columns: 1fr; } #consent { padding-top: 20px; } }
+@media print { #consent, .secondary-actions, #emailForm, #actionStatus { display: none !important; } }

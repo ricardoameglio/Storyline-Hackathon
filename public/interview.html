@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Interview</title>
+<script src="/theme.js"></script>
 <style>
   :root{
     --paper:#F4F1EA; --ink:#17150F; --muted:#6B6455;
@@ -35,9 +36,12 @@
   }
   @media(max-width:520px){ .question{font-size:24px} }
 
+  /* Fixed box, scrolls inside itself. A live transcript that grows the page
+     yanks the layout down while the person is still talking. */
   .heard{
     background:var(--card); border:1px solid var(--line); border-radius:12px;
-    padding:16px 18px; min-height:92px; color:var(--muted); font-size:17px;
+    padding:16px 18px; color:var(--muted); font-size:17px;
+    height:132px; overflow-y:auto; overscroll-behavior:contain;
   }
   .heard.active{color:var(--ink); border-color:#C9BFA8}
   .heard .ph{color:#A79E8B}
@@ -52,10 +56,53 @@
   button.big{padding:16px 30px; font-size:17px}
 
   .hint{font-size:13px; color:var(--muted); margin-top:14px}
-  .level{height:3px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:18px}
+
+  /* Amber, not red: this is a stop and an explanation, not a punishment. */
+  .alert{
+    display:flex; gap:14px; align-items:flex-start;
+    background:#FDF3D6; border:1px solid #E4B53F; border-left:5px solid #D9971B;
+    border-radius:12px; padding:16px 18px; margin-bottom:26px;
+  }
+  .alert-icon{color:#9A6510; flex:0 0 auto; line-height:0; margin-top:1px}
+  .alert-title{
+    margin:0 0 4px; font-weight:700; font-size:14px; letter-spacing:.03em;
+    text-transform:uppercase; color:#7A4E0B;
+  }
+  .alert-body{margin:0; font-size:15px; line-height:1.5; color:#5C3D0C}
+  /* A warning is the same amber, a shade softer — a stop is not a scolding. */
+  .alert.alert-warn{background:#FEF8E7; border-left-color:#E4B53F}
+  @media print{ .alert{display:none !important} }
+  /* The ten minutes, made visible. A promise you can watch being kept. */
+  .timebar{height:3px; border-radius:2px; background:var(--line); overflow:hidden; margin:10px 0 22px}
+  .timebar i{display:block; height:100%; width:0; border-radius:2px; background:var(--accent);
+    transition:width 1s linear, background .4s ease}
+  .timebar.last-minute i{background:#C2870A}
+  .viz-row{margin:-8px 0 18px; display:flex; justify-content:center; align-items:center; position:relative}
+  #viz{width:100%; max-width:300px; height:34px; display:block}
+
+  /* Mute. No box, no fill — just the symbol, in the page's own ink. It turns
+     amber when the mic is off, because the one thing worse than being muted is
+     not knowing you are. */
+  /* The extra class beats .interview-page button, which would otherwise give it
+     a filled background and a 44px box — exactly the recuadro we don't want. */
+  .interview-page .micbtn{position:absolute; right:0; top:50%; transform:translateY(-50%);
+    background:none; background-color:transparent; border:0; box-shadow:none;
+    padding:6px; margin:0; cursor:pointer; line-height:0; min-height:0; border-radius:6px;
+    color:var(--muted); transition:color .18s ease}
+  .interview-page .micbtn:hover{background:none; background-color:transparent; color:var(--ink)}
+  .interview-page .micbtn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  .interview-page .micbtn.muted{color:#C2870A}
+  .micbtn svg{width:21px; height:21px; display:block}
+  .micbtn[hidden]{display:none}
+  .micbtn .off{display:none}
+  .micbtn.muted .on{display:none}
+  .micbtn.muted .off{display:block}
+  @media (max-width:480px){ #viz{max-width:210px} }
+  .level{height:3px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:10px}
   .level i{display:block; height:100%; width:0%; background:var(--accent); transition:width .12s}
 
-  .log{margin-top:40px; border-top:1px solid var(--line); padding-top:20px}
+  .log{margin-top:40px; border-top:1px solid var(--line); padding-top:20px;
+       max-height:38vh; overflow-y:auto; overscroll-behavior:contain}
   .log h2{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 14px}
   .t{margin-bottom:14px; font-size:15px}
   .t b{display:block; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:3px; font-weight:600}
@@ -67,53 +114,161 @@
   .done h2{font:400 26px/1.3 ui-serif,Georgia,serif; margin:0 0 10px}
   .err{color:#9B1C1C; font-size:14px; margin-top:12px}
   .center{text-align:center; padding-top:6vh}
+
+  #copy{margin-top:26px}
+  .out{background:var(--card); border:1px solid var(--line); border-radius:14px;
+       padding:22px; margin-bottom:14px}
+  .out h3{font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+          color:var(--muted); margin:0 0 10px}
+  .out p{margin:0 0 12px; white-space:pre-wrap}
+  .out .nail{font:400 22px/1.35 ui-serif,Georgia,serif; margin:0}
+  .copybtn{font:inherit; font-size:13px; font-weight:550; padding:8px 14px;
+           border-radius:8px; border:1px solid var(--ink); background:transparent;
+           color:var(--ink); cursor:pointer}
+  .checked{font-size:12px; color:var(--muted); margin-top:10px}
+
+  .modes{display:inline-flex; gap:0; border:1px solid var(--line); border-radius:10px;
+         overflow:hidden; margin:22px 0 4px; background:var(--card)}
+  .mode{font:inherit; font-size:14px; font-weight:550; padding:10px 18px; border:0;
+        background:transparent; color:var(--muted); cursor:pointer; border-radius:0}
+  .mode.on{background:var(--ink); color:var(--paper)}
+
+  #typed{margin-top:14px}
+  #typedText{width:100%; font:inherit; font-size:17px; padding:14px 16px;
+             border:1px solid var(--line); border-radius:12px; background:var(--card);
+             color:var(--ink); resize:vertical}
+  #typedText:focus{outline:none; border-color:#C9BFA8}
+
+  @media print{
+    @page{ margin:18mm }
+    body{background:#fff; padding:0}
+    header,.bar,.level,.heard,#intro,#live,.copybtn,.hint{display:none !important}
+    #end{display:block !important}
+    .out{border:0; border-bottom:1px solid #ddd; border-radius:0; padding:0 0 16px;
+         margin-bottom:18px; background:#fff; break-inside:avoid}
+    .done{border:0; padding:0}
+    .checked{display:block !important; color:#666}
+  }
 </style>
+<link rel="stylesheet" href="/product.css" />
+<link rel="stylesheet" href="/completion.css" />
 </head>
-<body>
+<body class="interview-page">
 <div class="wrap">
+  <div class="alert" id="alert" role="alert" hidden>
+    <span class="alert-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none"
+           stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.3 3.9 1.8 18.4A2 2 0 0 0 3.5 21.4h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13.5"/>
+        <line x1="12" y1="17.5" x2="12.01" y2="17.5"/>
+      </svg>
+    </span>
+    <div>
+      <p class="alert-title" id="alertTitle">Alert</p>
+      <p class="alert-body" id="alertBody"></p>
+    </div>
+  </div>
+
   <header>
-    <span class="brand">Prologue · Discovery</span>
+    <a class="room-brand" href="/">prologue <span>Interview</span></a>
     <span class="clock"><span class="dot idle" id="dot"></span><span id="clock">--:--</span></span>
+    <label class="theme-control" for="themeChoice">Theme<select id="themeChoice"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
   </header>
 
   <!-- start -->
   <section id="intro" class="center">
     <h1 id="greeting">Getting ready…</h1>
     <p class="hint" id="introHint">This takes about ten minutes. Find somewhere you can talk out loud.</p>
+
+    <div class="modes" role="group" aria-label="How do you want to answer">
+      <button type="button" class="mode on" id="modeVoice">Talk to it</button>
+      <button type="button" class="mode" id="modeText">Type instead</button>
+    </div>
+
     <div class="bar" style="justify-content:center">
       <button class="big" id="start" disabled>Start the interview</button>
     </div>
-    <p class="hint">Works best in Chrome. Your mic stays on only while you're answering.</p>
+    <p class="hint" id="modeHint">Works best in Chrome. Your mic stays on only while you're answering.</p>
   </section>
 
   <!-- live -->
   <section id="live" hidden>
-    <p class="question" id="question"></p>
+    <div class="session-meta"><p id="sessionState" role="status" aria-live="polite">Ready</p><span id="questionProgress"></span></div>
+    <div class="timebar" id="timebar" aria-hidden="true"><i id="timefill"></i></div>
+    <h1 class="question" id="question" aria-live="polite"></h1>
+    <div class="viz-row">
+      <canvas id="viz" aria-hidden="true"></canvas>
+      <button class="micbtn" id="micToggle" type="button" aria-pressed="false" aria-label="Mute microphone" title="Mute microphone">
+        <svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="2.5" width="6" height="11.5" rx="3" /><path d="M5 11.5a7 7 0 0 0 14 0" /><path d="M12 18.5v3" /><path d="M8.5 21.5h7" />
+        </svg>
+        <svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="2.5" width="6" height="11.5" rx="3" /><path d="M5 11.5a7 7 0 0 0 14 0" /><path d="M12 18.5v3" /><path d="M8.5 21.5h7" /><path d="M3.6 3.2 20.4 20.8" />
+        </svg>
+      </button>
+    </div>
     <div class="heard" id="heard"><span class="ph">Listening…</span></div>
     <div class="level"><i id="lvl"></i></div>
+    <div id="typed" hidden>
+      <label for="typedText" id="answerLabel">Your answer</label>
+      <textarea id="typedText" rows="3" placeholder="Type your answer…"></textarea>
+    </div>
+
     <div class="bar">
       <button id="next">Done answering</button>
       <button class="ghost" id="repeat">Say it again</button>
+      <button class="ghost" id="swap">Type instead</button>
       <button class="ghost" id="finish">End early</button>
     </div>
     <p class="hint" id="hint">Just talk. It'll wait for you to finish.</p>
-    <p class="err" id="err"></p>
-    <div class="log" id="logBox" hidden>
-      <h2>Transcript</h2>
+    <p class="err" id="err" role="alert"></p>
+    <details class="log" id="logBox" hidden>
+      <summary id="transcriptLabel">Transcript</summary>
       <div id="log"></div>
+    </details>
+  </section>
+
+  <section id="consent" hidden aria-labelledby="consentTitle">
+    <p class="eyebrow" id="consentEyebrow">One last thing</p>
+    <h1 id="consentTitle" tabindex="-1">Before we wrap up — should this conversation stay private, or go On the Record?</h1>
+    <div class="consent-options">
+      <button class="ghost consent-choice" id="choosePrivate"><strong>Private</strong><span>Keep it off The Wall. People with this interview link can still access it.</span></button>
+      <button class="ghost consent-choice" id="chooseRecord"><strong>On the Record</strong><span>Allow this interview to appear on The Wall, our visible interview archive.</span></button>
     </div>
+    <p id="consentStatus" class="hint" role="status"></p>
+    <p id="consentError" class="err" role="alert"></p>
   </section>
 
   <!-- done -->
   <section id="end" hidden>
     <div class="done">
+      <p class="eyebrow" id="completeLabel">Interview complete</p>
       <h2 id="thanks">Thank you.</h2>
       <p class="hint" id="endStats"></p>
-      <p class="hint">Your editor has the transcript. You'll have copy shortly.</p>
+      <p id="visibilityLabel" class="visibility-label"></p>
+      <p id="visibilityHint" class="hint"></p>
+      <p class="hint" id="writing" role="status">Preparing your story…</p>
+      <div class="processing-track" id="processingTrack" aria-hidden="true"><i></i></div>
+      <div class="bar" id="endBar" hidden>
+        <button id="emailToggle" aria-expanded="false" aria-controls="emailForm">Email summary</button>
+        <button class="ghost" id="pdf">Download PDF</button>
+        <button class="ghost" id="copySummary">Copy summary</button>
+      </div>
+      <form id="emailForm" hidden>
+        <label for="summaryEmail" id="emailLabel">Send your summary to</label>
+        <div class="email-row"><input id="summaryEmail" name="email" type="email" autocomplete="email" placeholder="email@example.com" maxlength="254" required /><button id="sendEmail" type="submit">Send summary</button></div>
+        <p id="emailStatus" class="hint" role="status"></p>
+      </form>
+      <p id="actionStatus" class="hint" role="status"></p>
     </div>
+    <div id="copy"></div>
+    <div class="bar secondary-actions"><a href="/" id="anotherInterview">Start another interview</a><a href="/#wallTitle" id="viewWall" hidden>View on The Wall</a></div>
   </section>
 </div>
 
+<script src="/waveform.js"></script>
 <script src="/interview.js"></script>
 </body>
 </html>

@@ -1,0 +1,216 @@
+/* Shared presentation tokens. Interview requests and state remain in interview.js. */
+.start-action button .creation-spinner { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -2px; animation: creation-spin .8s linear infinite; }
+@keyframes creation-spin { to { transform: rotate(360deg); } }
+.style-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.setup-choice .choice-card { padding: 10px 12px; }
+.setup-choice .choice-card strong { font-size: 13px; margin-bottom: 2px; }
+.journey summary strong { margin: 0; }
+.style-choice { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 10px; padding: 14px; margin: 0; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; background: var(--surface); transition: background .16s, border-color .16s; }
+.style-choice > span { min-width: 0; flex: 1; }
+.style-choice input { width: 16px; height: 16px; min-height: 0; margin: 2px 0 0; flex: 0 0 auto; accent-color: var(--accent); }
+.style-choice strong, .style-choice small { display: block; }
+.style-choice strong { font-size: 13px; font-weight: 600; line-height: 1.5; }
+.style-choice small { margin-top: 4px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.setup-preferences { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(130px, 1fr); align-items: start; gap: 16px; margin-bottom: 24px; }
+.settings-disclosure { padding-top: 25px; }
+.settings-disclosure > summary { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--action); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; background: var(--action); color: var(--on-action); }
+.settings-disclosure > summary:hover, .settings-disclosure[open] > summary { background: var(--accent); border-color: var(--accent); }
+.settings-icon { display: block; flex: 0 0 18px; }
+.settings-content { padding: 16px 0 0; animation: reveal .18s ease-out; }
+.settings-content .field { margin-bottom: 14px; }
+.settings-content label { font-size: 12px; }
+.how-it-works .journey { display: flex; flex-direction: column; gap: 0; padding: 0; margin: 16px 0 0; list-style: none; }
+.how-it-works .journey li { display: block; position: relative; padding: 0 0 14px; }
+.journey li:not(:last-child)::before { content: ""; position: absolute; top: 30px; bottom: 0; left: 15px; width: 1px; background: var(--line); transition: background .18s; }
+.journey li:has(details[open])::before, .journey li:hover::before, .journey li:focus-within::before { background: var(--accent); }
+.journey summary { display: flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; list-style: none; border-radius: 4px; }
+.journey summary::-webkit-details-marker, .settings-disclosure summary::-webkit-details-marker { display: none; }
+.journey .journey-node { display: grid; place-items: center; width: 31px; height: 31px; flex: 0 0 31px; border: 1px solid var(--line); border-radius: 50%; background: var(--wash); font-size: 11px; transition: background .18s, border-color .18s; }
+.journey summary:hover .journey-node, .journey details[open] .journey-node, .journey summary:focus-visible .journey-node { background: var(--soft-accent); border-color: var(--accent); }
+.journey strong, .journey small { display: block; line-height: 1.5; }
+.journey small { font-size: 12px; color: var(--muted); }
+.journey .journey-toggle { margin-left: auto; color: var(--muted); transition: transform .18s; }
+.journey details[open] .journey-toggle { transform: rotate(45deg); }
+.how-it-works .journey p { margin: 6px 0 0 43px; font-size: 12px; line-height: 1.6; animation: reveal .18s ease-out; }
+.start-action button span { display: inline-block; transition: transform .16s; }
+.start-action button:hover span { transform: translateX(3px); }
+@media (max-width: 520px) {
+  .style-grid, .setup-preferences { grid-template-columns: minmax(0, 1fr); }
+  .settings-disclosure { padding-top: 0; }
+  .settings-disclosure > summary { justify-content: flex-start; padding: 0 12px; }
+  .settings-content { padding: 14px; background: var(--wash); border-radius: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .style-choice, .journey *, .journey li::before, .settings-content, .start-action button span { animation: none !important; transition: none !important; }
+  .start-action button:hover span { transform: none; }
+}
+:root {
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --serif: Georgia, "Times New Roman", serif;
+  --paper: #f6f5f0; --surface: #fdfcf9; --card: var(--surface);
+  --wash: #efefe8; --ink: #282b25; --muted: #656b60;
+  --line: #d8dcd1; --accent: #52663c; --soft-accent: #e8eedf;
+  --danger: #a63227; --action: #344628; --on-action: #fafbf7;
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  --paper: #1b1e1a; --surface: #232721; --card: var(--surface);
+  --wash: #2a2f27; --ink: #eeeee6; --muted: #b0b8a7;
+  --line: #40483a; --accent: #b4ca97; --soft-accent: #34412c;
+  --danger: #ffa69a; --action: #bacf9e; --on-action: #20291a;
+  color-scheme: dark;
+}
+body { font-family: var(--sans); background: var(--paper); color: var(--ink); }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+button, input, textarea, select { font-family: var(--sans); }
+button, a, summary { -webkit-tap-highlight-color: transparent; }
+button, input, textarea, select, a { transition: background .16s, border-color .16s, color .16s, box-shadow .16s; }
+button:active { transform: translateY(1px); }
+button:disabled { cursor: wait; opacity: .55; }
+input, textarea, select { background: var(--surface); color: var(--ink); border-color: var(--line); }
+input:hover, textarea:hover, select:hover { border-color: var(--muted); }
+input:focus, textarea:focus, select:focus { background: var(--surface); color: var(--ink); border-color: var(--accent); box-shadow: 0 0 0 3px var(--soft-accent); }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: .8; font-family: var(--sans); font-style: normal; }
+.theme-control { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin: 0; flex-wrap: nowrap; }
+.theme-control select { width: auto; min-height: 36px; padding: 6px 25px 6px 10px; font-size: 12px; border: 1px solid var(--line); border-radius: 5px; }
+.product-label { letter-spacing: 0; font-size: 12px; text-transform: none; }
+.page-intro { display: block; padding: 30px 0 24px; }
+.page-intro h1 { font: 600 clamp(28px, 3vw, 36px)/1.2 var(--sans); letter-spacing: -.035em; }
+.page-intro .intro-copy { font-size: 14px; margin: 8px 0 0; max-width: none; }
+.panel-heading { margin-bottom: 22px; }
+.panel-heading h2 { font: 600 20px/1.3 var(--sans); letter-spacing: -.02em; }
+.eyebrow, .field-section legend { font-size: 12px; letter-spacing: 0; text-transform: none; }
+.section-number { display: none; }
+.field-section { margin-bottom: 24px; }
+.field-section legend { font-weight: 600; color: var(--ink); }
+.setup-choice legend { font-size: 14px; }
+.choice-card { padding: 14px 12px; }
+/* One interaction system for setup-mode and interview-style radio cards. */
+:is(.choice-card, .style-choice) { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); box-shadow: none; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s; }
+:is(.choice-card, .style-choice) input[type="radio"] { accent-color: var(--accent); cursor: pointer; }
+@media (hover: hover) {
+  :is(.choice-card, .style-choice):hover:not(:has(input:checked)) { background: color-mix(in srgb, var(--surface) 50%, var(--soft-accent)); border-color: var(--accent); }
+}
+:is(.choice-card, .style-choice):has(input:checked) { background: var(--soft-accent); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+:is(.choice-card, .style-choice):has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
+.choice-card strong { font: 600 14px/1.4 var(--sans); letter-spacing: 0; margin-bottom: 5px; }
+.choice-card span span { font-size: 12px; line-height: 1.5; }
+label { font-size: 13px; }
+.optional, .field-hint, .config-summary { font-size: 12px; }
+textarea { font: 14px/1.6 var(--sans); min-height: 90px; background: var(--surface); }
+.interview-settings { background: var(--wash); border-radius: 6px; }
+.guided-intro { padding: 14px 16px; background: var(--wash); border-left: 2px solid var(--accent); }
+.guided-intro p { font-size: 13px; }
+#personFields:not([hidden]), #storyFields:not([hidden]), #guidedIntro:not([hidden]) { animation: reveal .18s ease-out; }
+#go, #quick { background: var(--action); border-color: var(--action); color: var(--on-action); min-height: 46px; font-size: 14px; }
+#go:hover, #quick:hover { background: var(--action); filter: brightness(1.12); }
+.wall-panel { background: var(--wash); }
+.brief-preview h3, .how-it-works h3 { font: 600 16px/1.4 var(--sans); letter-spacing: -.015em; }
+.brief-preview .eyebrow { font-size: 12px; }
+#previewAngle { font: 14px/1.6 var(--sans); color: var(--muted); }
+.preview-person, .preview-settings { font: 12px/1.5 var(--sans); }
+.how-it-works, .archive-section { border-color: var(--line); margin-top: 20px; padding-top: 20px; }
+.how-it-works li > span { font: 500 12px var(--sans); }
+.how-it-works strong { font-size: 12px; }
+.how-it-works p { font-size: 12px; }
+.wall-panel h2 { font: 600 18px/1.4 var(--sans); letter-spacing: -.02em; margin-bottom: 12px; }
+.stats { border-color: var(--line); padding: 12px 0; margin-bottom: 12px; }
+.stat { border-color: var(--line); }
+.stat b { font-size: 18px; }
+.stat span { font-size: 11px; }
+.archive-disclosure summary { font-size: 13px; min-height: 44px; }
+.archive-toggle::before { font-size: 12px; }
+.archive-disclosure[open] #wall { animation: reveal .18s ease-out; }
+.interview-item { background: var(--surface); border-color: var(--line); padding: 16px; transition: border-color .16s, background .16s; }
+.interview-item:hover, .interview-item:focus-within { border-color: var(--accent); }
+.interview-item h3 { font: 600 17px/1.4 var(--sans); }
+.item-label { font-size: 11px; letter-spacing: 0; text-transform: none; }
+.completion { background: var(--soft-accent); color: var(--accent); }
+.item-company, .item-footer { font-size: 12px; }
+.item-nail, .interview-item blockquote { font: 14px/1.5 var(--sans); }
+.item-footer { border-color: var(--line); }
+.archive-empty { border-color: var(--line); }
+.archive-empty h3 { font: 600 15px/1.4 var(--sans); }
+.archive-empty p { font-size: 12px; }
+.share-room { background: var(--wash); border-color: var(--line); border-left-color: var(--accent); }
+.share-room h3 { font: 600 16px/1.4 var(--sans); }
+.share-actions { font-size: 12px; }
+.share-actions a.open-room { background: var(--action); color: var(--on-action); }
+.form-error, .err { color: var(--danger); }
+.page-footer { border-color: var(--line); }
+@keyframes reveal { from { opacity: .4; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+.interview-page { padding: 24px 24px 56px; font-size: 16px; }
+.interview-page .wrap { max-width: 880px; }
+.interview-page header { border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 40px; flex-wrap: wrap; }
+.room-brand { font: 26px/1 var(--serif); letter-spacing: -.8px; color: var(--ink); text-decoration: none; }
+.room-brand span { font: 12px var(--sans); color: var(--muted); letter-spacing: 0; margin-left: 10px; }
+.interview-page .clock { margin-left: auto; font-size: 14px; }
+.interview-page h1 { font: 600 clamp(28px, 4vw, 42px)/1.2 var(--sans); letter-spacing: -.03em; }
+.interview-page .center { padding: 48px 0; max-width: 650px; margin: auto; }
+.interview-page #introHint { font-size: 16px; }
+.interview-page .modes { border-radius: 6px; background: var(--surface); margin: 24px 0 8px; }
+.interview-page .mode { min-height: 44px; }
+.interview-page .mode.on { background: var(--action); color: var(--on-action); }
+.interview-page button { border-radius: 6px; border-color: var(--action); background: var(--action); color: var(--on-action); min-height: 44px; font-size: 14px; }
+.interview-page button:hover:not(:disabled) { filter: brightness(1.12); }
+.interview-page button.ghost, .interview-page .copybtn, .interview-page .mode:not(.on) { background: transparent; border-color: var(--line); color: var(--ink); }
+.interview-page #live { max-width: 780px; margin: auto; }
+.session-meta { display: flex; gap: 16px; align-items: center; justify-content: space-between; margin: 0 0 24px; color: var(--muted); font-size: 13px; }
+#sessionState { display: flex; align-items: center; gap: 9px; margin: 0; color: var(--accent); }
+#sessionState::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+[data-state="listening"] #sessionState::before { animation: listening-pulse 1.3s ease-in-out infinite; }
+[data-state="thinking"] #sessionState::before, [data-state="speaking"] #sessionState::before { animation: listening-pulse .8s ease-in-out infinite; }
+.interview-page .question { font: 550 clamp(28px, 3.5vw, 40px)/1.35 var(--sans); letter-spacing: -.025em; min-height: 150px; margin-bottom: 32px; overflow-wrap: anywhere; }
+.interview-page .heard { background: var(--surface); border-radius: 6px; border-color: var(--line); height: 104px; font-size: 15px; }
+.interview-page .heard.active { border-color: var(--accent); }
+.interview-page .heard .ph { color: var(--muted); }
+.interview-page .level { height: 3px; margin-top: 10px; }
+.interview-page .level i { background: var(--accent); }
+.interview-page .level:has(+ #typed:not([hidden])) { display: none; }
+.interview-page #typedText { background: var(--surface); border-color: var(--line); border-radius: 6px; min-height: 120px; font-size: 16px; }
+.interview-page #typedText:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.interview-page .hint { font-size: 13px; color: var(--muted); }
+.interview-page #finish { margin-left: auto; color: var(--muted); }
+.interview-page .log { border-color: var(--line); margin-top: 32px; padding-top: 16px; font-size: 13px; }
+.log summary { cursor: pointer; min-height: 32px; color: var(--muted); }
+.log[open] #log { animation: reveal .18s ease-out; }
+.interview-page .t b { text-transform: none; letter-spacing: 0; font-size: 12px; }
+.interview-page .why { font-style: normal; }
+.interview-page #end { max-width: 720px; margin: auto; }
+.interview-page .done { background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 0 0 24px; }
+.interview-page .done h2 { font: 600 28px/1.3 var(--sans); letter-spacing: -.025em; }
+.interview-page .out { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 24px 0; margin: 0; background: transparent; }
+.interview-page .out h3 { text-transform: none; letter-spacing: 0; font: 600 13px/1.4 var(--sans); color: var(--muted); margin-bottom: 14px; }
+.interview-page .out p { font: 18px/1.8 var(--serif); overflow-wrap: anywhere; }
+.interview-page .out .nail { font: 400 28px/1.4 var(--serif); }
+.interview-page .checked { color: var(--muted); font-size: 12px; margin-top: 24px; }
+.processing-track { height: 3px; max-width: 240px; background: var(--line); overflow: hidden; margin-top: 20px; }
+.processing-track i { display: block; width: 40%; height: 100%; background: var(--accent); animation: processing 1.4s ease-in-out infinite; }
+@keyframes listening-pulse { 50% { opacity: .35; } }
+@keyframes processing { from { transform: translateX(-100%); } to { transform: translateX(350%); } }
+@media (max-width: 600px) {
+  .interview-page { padding: 18px 20px 40px; }
+  .interview-page header { margin-bottom: 28px; gap: 10px; }
+  .room-brand span { display: none; }
+  .interview-page .center { padding-top: 32px; }
+  .interview-page .question { min-height: 120px; margin-bottom: 24px; }
+  .interview-page .bar { gap: 8px; }
+  .interview-page #next { flex: 1 0 100%; }
+  .interview-page .bar button { padding: 10px 12px; }
+  .interview-page #finish { margin-left: 0; }
+}
+@media print {
+  :root, [data-theme="dark"] { --paper: #fff; --surface: #fff; --ink: #222; --muted: #555; --line: #ddd; }
+  .theme-control, .processing-track { display: none !important; }
+  .interview-page .out { padding: 0 0 16px; }
+}
+@media (max-width: 760px) {
+  .page-intro { padding: 24px 0 20px; }
+  .masthead { gap: 12px; }
+  .theme-control { gap: 5px; }
+  .how-it-works p { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

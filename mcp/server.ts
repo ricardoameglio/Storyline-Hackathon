@@ -154,6 +154,7 @@ server.tool(
   async ({ interviewId }) => {
     const c = await api(`/api/interviews/${interviewId}/content`, { method: "POST" });
     const out: string[] = [];
+    if (c.summary) out.push(`SUMMARY\n${c.summary}`);
     if (c.contextGap) out.push(`CONTEXT GAP\n${c.contextGap}`);
     if (c.nail) out.push(`THE NAIL\n${c.nail}`);
     if (c.pullQuotes?.length) {
