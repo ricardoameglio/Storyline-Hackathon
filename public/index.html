@@ -1,183 +1,84 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Prologue Interviewer · Console</title>
-<style>
-  :root{ --paper:#F4F1EA; --ink:#17150F; --muted:#6B6455; --accent:#B4410E; --line:#DDD6C7; --card:#FFFDF8; }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);
-    font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:28px 20px 64px}
-  .wrap{max-width:980px;margin:0 auto}
-  h1{font:400 30px/1.2 ui-serif,Georgia,serif;margin:0 0 4px}
-  .sub{color:var(--muted);margin:0 0 28px;font-size:14px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-  @media(max-width:760px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
-  h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
-  label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
-  .opt{color:#A79E8B;font-style:italic}
-  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  button.ghost{background:transparent;color:var(--ink)}
-  .quick{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
-  .quick p{font-size:13px;color:var(--muted);margin:0}
-  input,textarea,select{width:100%;font:inherit;padding:9px 11px;border:1px solid var(--line);
-    border-radius:8px;background:#fff;color:var(--ink)}
-  textarea{min-height:72px;resize:vertical}
-  button{font:inherit;font-weight:550;border-radius:9px;padding:10px 18px;border:1px solid var(--ink);
-    background:var(--ink);color:var(--paper);cursor:pointer;margin-top:16px}
-  button.ghost{background:transparent;color:var(--ink)}
-  button:disabled{opacity:.4;cursor:default}
-  .stats{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:22px}
-  .stat b{display:block;font:400 32px/1 ui-serif,Georgia,serif}
-  .stat span{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-  .link{background:#fff;border:1px dashed var(--accent);border-radius:9px;padding:12px;
-    margin-top:14px;font-size:13px;word-break:break-all}
-  .link a{color:var(--accent)}
-  #qr{margin-top:12px;display:flex;justify-content:center}
-  .row{border-top:1px solid var(--line);padding:14px 0}
-  .row:first-of-type{border-top:0}
-  .row .who{font-weight:600}
-  .row .meta{font-size:12px;color:var(--muted)}
-  .row .nail{font:400 17px/1.35 ui-serif,Georgia,serif;margin-top:6px}
-  .row .q{font-size:13px;color:var(--muted);font-style:italic;margin-top:4px}
-  .empty{color:var(--muted);font-size:14px}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#faf8f4" />
+  <title>Prologue · Interview studio</title>
+  <link rel="stylesheet" href="/setup.css" />
 </head>
 <body>
-<div class="wrap">
-  <h1>Prologue Interviewer</h1>
-  <p class="sub">Hand out an assignment. Get back copy. The interview runs itself.</p>
-
-  <div class="grid">
-    <div class="card">
-      <h2>New assignment</h2>
-      <label>Who are we talking to</label>
-      <input id="subjectName" placeholder="Marcus Webb" />
-      <label>Their role</label>
-      <input id="subjectRole" placeholder="owner" />
-      <label>Business <span class="opt">optional</span></label>
-      <input id="company" placeholder="Red Bird Tacos" />
-      <label>The angle, in one sentence <span class="opt">optional</span></label>
-      <textarea id="angle" placeholder="Why a line forms outside a stall nobody advertises."></textarea>
-      <div class="two">
-        <div>
-          <label>Minutes</label>
-          <input id="durationMinutes" type="number" value="10" min="2" max="30" />
-        </div>
-        <div>
-          <label>Max questions <span class="opt">optional</span></label>
-          <input id="maxQuestions" type="number" placeholder="no limit" min="2" max="40" />
-        </div>
-      </div>
-      <label>Language</label>
-      <select id="language">
-        <option value="en">English</option>
-        <option value="es">Español</option>
-      </select>
-      <button id="go">Create &amp; open room</button>
-      <div id="out"></div>
-
-      <div class="quick">
-        <p>Or hand someone the link and let the interviewer do the asking — it
-           collects their name and what they do out loud, then starts.</p>
-        <button class="ghost" id="quick">Open a self-serve room</button>
-      </div>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Prologue home"><span class="brand-mark" aria-hidden="true">p.</span>prologue<span class="brand-label">INTERVIEW<br>STUDIO</span></a>
+    <a class="nav-link" href="#collection">Your stories <span aria-hidden="true">↗</span></a>
+  </header>
+  <main id="main" class="studio">
+    <section class="hero">
+      <p class="eyebrow">GOOD STORIES START WITH A QUESTION</p>
+      <h1>Every conversation<br>has a <em>story inside.</em></h1>
+      <p class="lede">Set a little direction. Make space for a real conversation.<br class="desktop-break"> Turn what you hear into something worth sharing.</p>
+    </section>
+    <div class="studio-grid">
+      <section class="panel" aria-labelledby="briefTitle">
+        <div class="section-heading"><span class="step">01</span><div><p class="eyebrow">THE BRIEF</p><h2 id="briefTitle">What story are we looking for?</h2></div></div>
+        <p class="intro-copy">Start with a name. The interviewer can discover the rest.</p>
+        <form id="briefForm">
+          <div class="two">
+            <div class="field">
+              <label for="subjectName">Who are we talking to? <span class="required">*</span></label>
+              <input id="subjectName" name="subjectName" placeholder="e.g. Marcus Webb" autocomplete="name" required />
+            </div>
+            <div class="field">
+              <label for="subjectRole">Their role <span class="optional">optional</span></label>
+              <input id="subjectRole" name="subjectRole" placeholder="e.g. Founder & CEO" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="company">Business or project <span class="optional">optional</span></label>
+            <input id="company" name="company" placeholder="The name behind the story" />
+          </div>
+          <div class="field">
+            <label for="angle">The story assignment <span class="optional">optional</span></label>
+            <textarea id="angle" name="angle" rows="4" placeholder="Find the moment that changed everything. What happened, who was there, and why did it matter?" aria-describedby="angleHint"></textarea>
+            <p class="hint" id="angleHint">Have an angle in mind? Share it here. Or leave it open and follow the conversation.</p>
+          </div>
+          <fieldset class="settings">
+            <legend>Shape the conversation</legend>
+            <div class="three">
+              <div class="field"><label for="durationMinutes">Minutes</label><input id="durationMinutes" name="durationMinutes" type="number" value="10" min="2" max="30" step="1" required /></div>
+              <div class="field"><label for="maxQuestions">Question limit <span class="optional">optional</span></label><input id="maxQuestions" name="maxQuestions" type="number" placeholder="No limit" min="2" max="40" step="1" /></div>
+              <div class="field"><label for="language">Language</label><select id="language" name="language"><option value="en">English</option><option value="es">Español</option></select></div>
+            </div>
+          </fieldset>
+          <div class="form-bottom"><span class="hint">A room link, ready to share.</span><button id="go" type="submit">Create interview room <span aria-hidden="true">↗</span></button></div>
+        </form>
+        <p id="error" class="error" role="alert"></p>
+        <p id="requestStatus" class="hint" role="status" aria-live="polite"></p>
+        <section id="out" class="room-ready" hidden aria-labelledby="roomTitle">
+          <div class="room-info"><p class="eyebrow">READY WHEN YOU ARE</p><h3 id="roomTitle">Your conversation starts here.</h3><a id="roomLink" class="room-url" target="_blank" rel="noopener"></a><div class="actions"><button id="copyLink" class="secondary" type="button">Copy link</button><a id="operatorLink" class="text-link" target="_blank" rel="noopener">Open operator view ↗</a></div><p id="shareStatus" class="hint" role="status"></p></div>
+          <div id="qr" aria-label="Interview room QR code"></div>
+        </section>
+      </section>
+      <aside class="guide" aria-label="Ways to start an interview">
+        <p class="eyebrow">A LITTLE LESS SCRIPTED</p><h2>Leave room for<br><em>the unexpected.</em></h2>
+        <ol class="guide-steps">
+          <li><span>01</span><div><h3>Set the direction</h3><p>A name and, if you have one, a story worth exploring.</p></div></li>
+          <li><span>02</span><div><h3>Follow the conversation</h3><p>Share the room. Your guest can speak or type, in English or Spanish.</p></div></li>
+          <li><span>03</span><div><h3>Find what matters</h3><p>Bring the strongest quotes and moments into your next story.</p></div></li>
+        </ol>
+        <section class="quick-card" aria-labelledby="quickTitle">
+          <p class="eyebrow">SKIP THE BRIEF</p><h3 id="quickTitle">Let the story introduce itself.</h3><p>No details yet? Create a self-serve room. The interviewer will ask your guest who they are and what they do.</p><button class="secondary" id="quick" type="button">Open a self-serve room ↗</button><p class="hint">Uses the time, question limit, and language selected in the brief.</p>
+        </section>
+      </aside>
     </div>
-
-    <div class="card">
-      <h2>The wall</h2>
-      <div class="stats" id="stats"></div>
-      <div id="wall" class="empty">Nothing finished yet.</div>
-    </div>
-  </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script>
-const $ = (id) => document.getElementById(id);
-
-$("go").onclick = async () => {
-  const body = {
-    subjectName: $("subjectName").value.trim(),
-    subjectRole: $("subjectRole").value.trim() || undefined,
-    company: $("company").value.trim(),
-    angle: $("angle").value.trim(),
-    durationMinutes: Number($("durationMinutes").value) || 10,
-    maxQuestions: Number($("maxQuestions").value) || undefined,
-    language: $("language").value,
-  };
-  if (!body.subjectName) {
-    $("out").innerHTML = '<div class="link">Who are we talking to?</div>';
-    return;
-  }
-  $("go").disabled = true;
-  try {
-    const a = await post("/api/assignments", body);
-    const i = await post("/api/interviews", { assignmentId: a.id });
-    $("out").innerHTML =
-      `<div class="link">Hand them this:<br><a href="${i.url}" target="_blank">${i.url}</a>
-       <br><br><a href="${i.url}?operator=1" target="_blank">open with live reasoning →</a></div>
-       <div id="qr"></div>`;
-    new QRCode($("qr"), { text: i.url, width: 148, height: 148, colorDark: "#17150F", colorLight: "#FFFDF8" });
-  } catch (e) {
-    $("out").innerHTML = `<div class="link">${e.message}</div>`;
-  }
-  $("go").disabled = false;
-};
-
-$("quick").onclick = async () => {
-  $("quick").disabled = true;
-  try {
-    const i = await post("/api/quickstart", {
-      durationMinutes: Number($("durationMinutes").value) || 10,
-      maxQuestions: Number($("maxQuestions").value) || undefined,
-      language: $("language").value,
-    });
-    $("out").innerHTML =
-      `<div class="link">Self-serve room — it'll ask who they are:<br>
-       <a href="${i.url}" target="_blank">${i.url}</a>
-       <br><br><a href="${i.url}?operator=1" target="_blank">open with live reasoning →</a></div>
-       <div id="qr"></div>`;
-    new QRCode($("qr"), { text: i.url, width: 148, height: 148, colorDark: "#17150F", colorLight: "#FFFDF8" });
-  } catch (e) {
-    $("out").innerHTML = `<div class="link">${e.message}</div>`;
-  }
-  $("quick").disabled = false;
-};
-
-async function post(path, body) {
-  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error || "Request failed");
-  return d;
-}
-
-async function wall() {
-  try {
-    const w = await (await fetch("/api/wall")).json();
-    const s = w.stats;
-    $("stats").innerHTML = [
-      ["interviews", s.interviewsFinished],
-      ["minutes on the record", s.minutesOnTheRecord],
-      ["questions asked", s.questionsAsked],
-    ].map(([label, n]) => `<div class="stat"><b>${n}</b><span>${label}</span></div>`).join("");
-
-    $("wall").className = w.rows.length ? "" : "empty";
-    $("wall").innerHTML = w.rows.length
-      ? w.rows.map((r) => `
-          <div class="row">
-            <div class="who">${esc(r.subject || "")} <span class="meta">· ${esc(r.company || "")}</span></div>
-            <div class="meta">${r.minutes} min · ${r.questions} questions</div>
-            ${r.nail ? `<div class="nail">${esc(r.nail)}</div>` : ""}
-            ${r.topQuote ? `<div class="q">“${esc(r.topQuote)}”</div>` : ""}
-          </div>`).join("")
-      : "Nothing finished yet.";
-  } catch {}
-}
-const esc = (s) => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-wall(); setInterval(wall, 5000);
-</script>
+    <section id="collection" class="collection" aria-labelledby="collectionTitle">
+      <div class="collection-heading"><div><p class="eyebrow">ON THE RECORD</p><h2 id="collectionTitle">The story collection<span class="accent">.</span></h2></div><p id="wallStatus" class="hint" role="status">Loading your collection…</p></div>
+      <div id="stats" class="stats"></div><div id="wall" class="story-grid"></div>
+    </section>
+  </main>
+  <footer class="site-footer"><span class="brand-word">prologue</span><span>Made for stories worth telling.</span><a href="#main">Back to the brief ↑</a></footer>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+  <script src="/setup.js" defer></script>
 </body>
 </html>
