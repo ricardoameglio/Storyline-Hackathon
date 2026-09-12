@@ -58,6 +58,7 @@ const el = {
   hint: $("hint"), err: $("err"), log: $("log"), logBox: $("logBox"),
   clock: $("clock"), dot: $("dot"), thanks: $("thanks"), endStats: $("endStats"),
   pdf: $("pdf"), endBar: $("endBar"), writing: $("writing"), copy: $("copy"),
+  alert: $("alert"), alertTitle: $("alertTitle"), alertBody: $("alertBody"),
 };
 
 /* UI copy. Neutral Latin American Spanish — "tú", no "vos", no "vosotros". */
@@ -95,6 +96,9 @@ const STRINGS = {
     micBlocked: "Mic permission was blocked. Allow it in the address bar, or switch to typing.",
     noSpeech: "This browser can't hear you — switch to typing.",
     tryAgain: "Press the button to try again.",
+    alertTitle: "Alert · content not allowed",
+    alertBody:
+      "This interview has been ended. Explicit, sexual, hateful or threatening language isn't allowed here — these conversations are kept as records with real people's names on them. Nothing from this session was saved or published.",
     badLink: "This interview link isn't valid.",
     cantLoad: "Couldn't load this interview.",
   },
@@ -131,6 +135,9 @@ const STRINGS = {
     micBlocked: "Se bloqueó el micrófono. Permítelo en la barra de direcciones, o cambia a escribir.",
     noSpeech: "Este navegador no puede escucharte — cambia a escribir.",
     tryAgain: "Dale al botón para intentar otra vez.",
+    alertTitle: "Alerta · contenido no permitido",
+    alertBody:
+      "Esta entrevista se cerró. Aquí no se permite lenguaje explícito, sexual, de odio ni amenazas — estas conversaciones quedan como registros con el nombre real de una persona. No se guardó ni se publicó nada de esta sesión.",
     badLink: "Este enlace de entrevista no sirve.",
     cantLoad: "No se pudo cargar la entrevista.",
   },
@@ -495,10 +502,12 @@ async function submitAnswer() {
     if (data.assignment) assignment = data.assignment;
     phase = data.interview?.phase || phase;
 
-    // The screener ended it: one neutral line, then stop. No write-up, no PDF.
+    // The screener ended it. Put the warning up FIRST, so it is on screen while
+    // the interviewer says its line — they should see why, not just that.
     if (data.ended || !data.question) {
       busy = false;
       el.next.disabled = false;
+      if (data.ended) showAlert();
       if (data.say) await say(data.say);
       return showEnd(data.interview);
     }
@@ -524,6 +533,15 @@ async function submitAnswer() {
     el.hint.textContent = T.tryAgain;
     presentState("error");
   }
+}
+
+/** Amber banner, warning glyph, both languages. Stays up through the end screen. */
+function showAlert() {
+  if (!el.alert) return;
+  el.alertTitle.textContent = T.alertTitle;
+  el.alertBody.textContent = T.alertBody;
+  el.alert.hidden = false;
+  el.alert.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function showEnd(data = completedInterview) {
@@ -567,6 +585,7 @@ function showEnd(data = completedInterview) {
     ? (language === "es" ? `${questionCount} preguntas en menos de un minuto.` : `${questionCount} questions in under a minute.`)
     : T.stats(questionCount, mins);
   if (data?.endedReason === "screened") {
+    showAlert();
     if (el.writing) {
       el.writing.textContent = language === "es"
         ? "Esta entrevista se cerró antes de tiempo, así que no se redactó nada y queda privada."
