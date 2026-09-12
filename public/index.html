@@ -7,12 +7,15 @@
 <script src="/theme.js"></script>
 <link rel="stylesheet" href="/interviewer-studio.css" />
 <link rel="stylesheet" href="/product.css" />
+<link rel="stylesheet" href="/responsive.css" />
+<link rel="stylesheet" href="/selects.css" />
+<script src="/selects.js" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#assignmentForm">Skip to the assignment</a>
 <div class="page-shell">
   <header class="masthead">
-    <a class="brand" href="/" aria-label="Prologue home"><span class="brand-icon" aria-hidden="true">p.</span>prologue<span class="brand-divider"></span><span class="product-label">Interviewer</span></a>
+    <a class="brand" href="/" aria-label="Prologue home"><span class="brand-logo" aria-hidden="true"><img src="/prologue-logo.png" alt="" width="1254" height="1254" /></span>prologue<span class="brand-divider" aria-hidden="true"></span><span class="product-label">Interviewer</span></a>
     <label class="theme-control" for="themeChoice">Theme<select id="themeChoice"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
 
   </header>
@@ -24,7 +27,7 @@
     <div class="workspace">
       <section class="assignment" aria-labelledby="assignmentTitle">
         <div class="panel-heading"><h2 id="assignmentTitle">Interview setup</h2></div>
-        <form id="assignmentForm">
+        <form id="assignmentForm" novalidate>
     <fieldset class="setup-choice">
       <legend>How would you like to start?</legend>
       <div class="choice-grid">
@@ -42,28 +45,40 @@
             <div class="field"><label for="company">Business <span class="optional">Optional</span></label><input id="company" name="company" placeholder="e.g. Red Bird Tacos" /></div>
           </fieldset>
     <fieldset id="storyFields" class="field-section story-direction">
-            <legend><span class="section-number">02</span> Story</legend>
-            <div class="field"><label for="angle">Story angle <span class="optional">Optional</span></label><textarea id="angle" name="angle" rows="3" aria-describedby="angleHint" placeholder="What should the interview explore?"></textarea><p id="angleHint" class="field-hint">Leave blank for an open conversation.</p></div>
-          </fieldset>
-          <fieldset class="field-section interview-settings">
-            <legend><span id="settingsNumber" class="section-number">03</span> Settings</legend>
-            <div class="settings-row">
-              <div class="field"><label for="durationMinutes">Minutes</label><input id="durationMinutes" name="durationMinutes" type="number" value="10" min="2" max="30" step="1" required /></div>
-              <div class="field"><label for="maxQuestions">Max questions <span class="optional">Optional</span></label><input id="maxQuestions" name="maxQuestions" type="number" placeholder="No limit" min="2" max="40" step="1" /></div>
-              <div class="field"><label for="language">Language</label><select id="language" name="language"><option value="en">English</option><option value="es">Español</option></select></div>
+            <legend>Interview style</legend>
+            <div class="style-grid">
+              <label class="style-choice"><input type="radio" name="interviewType" id="styleCareer" value="career" /><span><strong>Career Journey</strong><small>Choices, turning points and growth.</small></span></label>
+              <label class="style-choice"><input type="radio" name="interviewType" id="styleFounder" value="founder" /><span><strong>Founder Story</strong><small>Origins, customers and breakthroughs.</small></span></label>
+              <label class="style-choice"><input type="radio" name="interviewType" id="stylePersonal" value="personal" checked /><span><strong>Personal Story</strong><small>Experiences, people and meaning.</small></span></label>
+              <label class="style-choice"><input type="radio" name="interviewType" id="styleExpert" value="expert" /><span><strong>Expert Insight</strong><small>Perspectives and ideas worth sharing.</small></span></label>
             </div>
           </fieldset>
-          <div class="start-action"><button id="go" type="submit">Create interview room <span aria-hidden="true">→</span></button><button id="quick" type="button" hidden>Create self-serve room <span aria-hidden="true">→</span></button><p id="configSummary" class="config-summary">10 min · English · No question limit</p></div>
+          <div class="setup-preferences">
+              <div class="field"><label for="language">Language</label><select id="language" name="language"><option value="en">English</option><option value="es">Español</option></select></div>
+              <details id="settingsPanel" class="settings-disclosure">
+                <summary><svg class="settings-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9.5 3h5l.7 2.8 2.5 1.4 2.8-.8 2.5 4.3-2.1 2v2.8l2.1 2-2.5 4.3-2.8-.8-2.5 1.4-.7 2.8h-5l-.7-2.8-2.5-1.4-2.8.8L1 17.5l2.1-2v-2.8l-2.1-2 2.5-4.3 2.8.8 2.5-1.4z" transform="translate(2 0) scale(.8333)"/><circle cx="12" cy="12" r="3"/></svg> Settings</summary>
+                <div class="settings-content">
+                  <div class="field"><label for="durationMinutes">Duration (minutes)</label><input id="durationMinutes" name="durationMinutes" type="number" value="10" min="2" max="30" step="1" required /></div>
+                  <div class="field"><label for="questionLimit">Question limit</label><select id="questionLimit"><option value="unlimited">Unlimited</option><option value="limited">Set a limit</option></select></div>
+                  <div id="questionCountField" class="field" hidden><label for="maxQuestions">Maximum questions</label><input id="maxQuestions" name="maxQuestions" type="number" value="10" min="2" max="40" step="1" disabled /></div>
+                </div>
+              </details>
+          </div>
+          <div class="start-action"><button id="go" type="submit">Create interview room <span aria-hidden="true">→</span></button><button id="quick" type="button" hidden>Create self-serve room <span aria-hidden="true">→</span></button><p id="configSummary" class="config-summary">English · 10 min · Unlimited questions</p></div>
         </form>
         <p id="formError" class="form-error" role="alert"></p>
         <p id="requestStatus" class="request-status" role="status"></p>
-        <div id="out" class="room-output" aria-live="polite"></div>
       </section>
       <aside class="wall-panel" aria-labelledby="previewTitle">
         <section class="brief-preview" aria-labelledby="previewTitle">
           <p class="eyebrow">Your brief</p><h3 id="previewTitle">A story starts with a person.</h3><p id="previewPerson" class="preview-person" hidden></p><p id="previewAngle">Add a name to prepare your interview.</p><p id="previewSettings" class="preview-settings">10 min · English · No question limit</p>
         </section>
-        <section class="how-it-works" aria-labelledby="howTitle"><h3 id="howTitle">How it works</h3><ol><li><span>01</span><div><strong>Set up</strong><p>Add a brief or skip it.</p></div></li><li><span>02</span><div><strong>Interview</strong><p>Answer by voice or text.</p></div></li><li><span>03</span><div><strong>Review</strong><p>Copy or download the story.</p></div></li></ol></section>
+        <section class="how-it-works" aria-labelledby="howTitle"><h3 id="howTitle">Your interview journey</h3><ol class="journey">
+          <li><details><summary><span class="journey-node" aria-hidden="true">01</span><span><strong>Brief</strong><small>Choose a direction</small></span><span class="journey-toggle" aria-hidden="true">+</span></summary><p>Choose a style and add the person, or let the interviewer ask.</p></details></li>
+          <li><details><summary><span class="journey-node" aria-hidden="true">02</span><span><strong>Conversation</strong><small>Have the conversation</small></span><span class="journey-toggle" aria-hidden="true">+</span></summary><p>Answer by voice or text while the interviewer listens and follows up.</p></details></li>
+          <li><details><summary><span class="journey-node" aria-hidden="true">03</span><span><strong>Discovery</strong><small>Find what matters</small></span><span class="journey-toggle" aria-hidden="true">+</span></summary><p>Specific moments and unexpected threads bring your story into focus.</p></details></li>
+          <li><details><summary><span class="journey-node" aria-hidden="true">04</span><span><strong>Story</strong><small>Take it with you</small></span><span class="journey-toggle" aria-hidden="true">+</span></summary><p>Choose what stays private, then take your summary, quotes and story with you.</p></details></li>
+        </ol></section>
         <section class="archive-section" aria-labelledby="wallTitle">
         <h2 id="wallTitle">Interview archive</h2>
         <div class="stats" id="stats" aria-label="Interview statistics"></div>
@@ -78,7 +93,6 @@
   </main>
   <footer class="page-footer"><span>prologue</span><a href="#assignmentForm">Back to the brief ↑</a></footer>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 let setupMode = "manual";
@@ -88,11 +102,10 @@ function setSetupMode(mode) {
   const guided = mode === "guided";
   $("manualMode").checked = !guided;
   $("guidedMode").checked = guided;
-  for (const id of ["personFields", "storyFields"]) {
+  for (const id of ["personFields"]) {
     $(id).hidden = $(id).disabled = guided;
   }
   $("guidedIntro").hidden = !guided;
-  $("settingsNumber").textContent = guided ? "01" : "03";
   $("go").hidden = guided;
   $("quick").hidden = !guided;
   $("formError").textContent = "";
@@ -108,14 +121,14 @@ $("assignmentForm").addEventListener("submit", (event) => {
 });
 
 async function createAssignment() {
-  if ($("go").disabled || !$("assignmentForm").reportValidity()) return;
+  if ($("go").disabled || !validSettings() || !$("assignmentForm").reportValidity()) return;
   const body = {
     subjectName: $("subjectName").value.trim(),
     subjectRole: $("subjectRole").value.trim() || undefined,
     company: $("company").value.trim(),
-    angle: $("angle").value.trim(),
+    interviewType: selectedStyle(),
     durationMinutes: Number($("durationMinutes").value) || 10,
-    maxQuestions: Number($("maxQuestions").value) || undefined,
+    maxQuestions: selectedQuestionLimit(),
     language: $("language").value,
   };
   if (!body.subjectName) {
@@ -127,12 +140,12 @@ async function createAssignment() {
   try {
     const a = await post("/api/assignments", body);
     const i = await post("/api/interviews", { assignmentId: a.id });
-    showRoom(i, false);
+    openRoom(i);
   } catch (e) {
     $("formError").textContent = e.message;
     $("requestStatus").textContent = "";
+    setCreating(false, false);
   }
-  setCreating(false, false);
 };
 
 $("quick").onclick = async () => {
@@ -140,16 +153,17 @@ $("quick").onclick = async () => {
   setCreating(true, true);
   try {
     const i = await post("/api/quickstart", {
+      interviewType: selectedStyle(),
       durationMinutes: Number($("durationMinutes").value) || 10,
-      maxQuestions: Number($("maxQuestions").value) || undefined,
+      maxQuestions: selectedQuestionLimit(),
       language: $("language").value,
     });
-    showRoom(i, true);
+    openRoom(i);
   } catch (e) {
     $("formError").textContent = e.message;
     $("requestStatus").textContent = "";
+    setCreating(false, true);
   }
-  setCreating(false, true);
 };
 
 async function post(path, body) {
@@ -196,65 +210,84 @@ async function wall() {
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function validSettings() {
-  return ["durationMinutes", "maxQuestions", "language"].every(id => $(id).reportValidity());
+  for (const id of ["durationMinutes", "maxQuestions", "language"]) {
+    const input = $(id);
+    if (input.disabled || input.validity.valid) continue;
+    if (id !== "language") $("settingsPanel").open = true;
+    input.focus();
+    input.reportValidity();
+    return false;
+  }
+  return true;
 }
 
 function setCreating(active, quick) {
   $("go").disabled = $("quick").disabled = active;
   $("manualMode").disabled = $("guidedMode").disabled = active;
   $("assignmentForm").setAttribute("aria-busy", String(active));
-  $("go").innerHTML = active && !quick ? 'Creating your room…' : 'Create interview room <span aria-hidden="true">→</span>';
-  $("quick").innerHTML = active && quick ? 'Creating your room…' : 'Create self-serve room <span aria-hidden="true">→</span>';
+  const loading = '<span class="creation-spinner" aria-hidden="true"></span> Creating room…';
+  $("go").innerHTML = active && !quick ? loading : 'Create interview room <span aria-hidden="true">→</span>';
+  $("quick").innerHTML = active && quick ? loading : 'Create self-serve room <span aria-hidden="true">→</span>';
   if (active) {
     $("formError").textContent = "";
     $("requestStatus").textContent = "Preparing a room for your conversation…";
   }
 }
 
-function showRoom(interview, selfServe) {
+function openRoom(interview) {
+  if (typeof interview.url !== "string" || !interview.url.trim()) throw new Error("The room link is missing. Please try again.");
   const url = new URL(interview.url, location.origin);
   if (!["http:", "https:"].includes(url.protocol)) throw new Error("The room link is invalid. Please try again.");
-  const roomUrl = url.href;
-  url.searchParams.set("operator", "1");
-  $("out").innerHTML = `<section class="share-room" aria-label="Your interview room"><div><p class="eyebrow">READY TO SHARE</p><h3>${selfServe ? "Your self-serve room is ready." : "Your interview room is ready."}</h3><a class="room-link" id="roomLink" href="${esc(roomUrl)}" target="_blank" rel="noopener">${esc(roomUrl)}</a><div class="share-actions"><a class="open-room" id="openRoom" href="${esc(roomUrl)}" target="_blank" rel="noopener">Open interview ↗</a><button type="button" id="copyRoom">Copy link</button><a href="${esc(url.href)}" target="_blank" rel="noopener">Operator view ↗</a></div><p class="field-hint" id="copyStatus" role="status"></p></div><div id="qr" aria-label="Room QR code"></div></section>`;
-  if (window.QRCode) {
-    try { new QRCode($("qr"), { text: roomUrl, width: 112, height: 112, colorDark: "#272922", colorLight: "#fcfbf8" }); }
-    catch { $("copyStatus").textContent = "QR unavailable. You can still share the link."; }
-  } else $("copyStatus").textContent = "QR unavailable. You can still share the link.";
-  $("copyRoom").onclick = async () => {
-    try { await navigator.clipboard.writeText(roomUrl); $("copyStatus").textContent = "Link copied."; }
-    catch { $("copyStatus").textContent = "Select and copy the link above."; }
-  };
-  $("requestStatus").textContent = "Room created.";
-  $("openRoom").focus();
+  location.assign(url.href);
 }
 
 function updateBrief() {
   const name = $("subjectName").value.trim();
   const role = $("subjectRole").value.trim();
   const business = $("company").value.trim();
-  const angle = $("angle").value.trim();
+  const style = { career: "Career Journey", founder: "Founder Story", personal: "Personal Story", expert: "Expert Insight" }[selectedStyle()];
   const validMinutes = $("durationMinutes").validity.valid && $("durationMinutes").value;
-  const validQuestions = $("maxQuestions").validity.valid;
-  const questionValue = $("maxQuestions").value;
+  const validQuestions = $("questionLimit").value !== "limited" || $("maxQuestions").validity.valid;
+  const questionValue = selectedQuestionLimit();
   const language = $("language").selectedOptions[0].textContent;
   const summary = [
-    validMinutes ? `${$("durationMinutes").value} min` : "Choose 2–30 minutes",
     language,
-    validQuestions ? (questionValue ? `Up to ${questionValue} questions` : "No question limit") : "Choose 2–40 questions",
+    validMinutes ? `${$("durationMinutes").value} min` : "Choose 2–30 minutes",
+    validQuestions ? (questionValue ? `Up to ${questionValue} questions` : "Unlimited questions") : "Choose 2–40 questions",
   ].join(" · ");
   $("configSummary").textContent = $("previewSettings").textContent = summary;
   if (setupMode === "guided") {
     $("previewTitle").textContent = "Your story starts in the room.";
     $("previewPerson").hidden = true;
-    $("previewAngle").textContent = "Start with your name and what you do. The interviewer takes it from there.";
+    $("previewAngle").textContent = `${style}. The interviewer will get to know you first.`;
     return;
   }
   $("previewTitle").textContent = name ? `A conversation with ${name}.` : "A story starts with a person.";
   $("previewPerson").textContent = [role, business].filter(Boolean).join(" · ");
   $("previewPerson").hidden = !role && !business;
-  $("previewAngle").textContent = angle || (name ? "An open conversation." : "Add a name to prepare your interview.");
+  $("previewAngle").textContent = `${style}. A direction to explore, with room to follow your story.`;
 }
+function selectedStyle() {
+  return ["styleCareer", "styleFounder", "stylePersonal", "styleExpert"].map($).find(input => input.checked)?.value || "personal";
+}
+function selectedQuestionLimit() {
+  return $("questionLimit").value === "limited" ? Number($("maxQuestions").value) || undefined : undefined;
+}
+function syncQuestionLimit() {
+  const limited = $("questionLimit").value === "limited";
+  $("questionCountField").hidden = !limited;
+  $("maxQuestions").disabled = !limited;
+  $("maxQuestions").required = limited;
+  updateBrief();
+}
+$("questionLimit").addEventListener("change", syncQuestionLimit);
+window.addEventListener("pageshow", () => {
+  // Browsers can restore form values and disabled buttons after Back navigation.
+  setCreating(false, $("guidedMode").checked);
+  setSetupMode($("guidedMode").checked ? "guided" : "manual");
+  syncQuestionLimit();
+  $("requestStatus").textContent = "";
+});
 $("assignmentForm").addEventListener("input", updateBrief);
 $("assignmentForm").addEventListener("change", updateBrief);
 updateBrief();

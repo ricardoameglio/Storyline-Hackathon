@@ -10,7 +10,7 @@
     "mcp": "tsx mcp/server.ts",
     "simulate": "tsx scripts/simulate.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint public/interview.js",
+    "lint": "eslint public/interview.js public/selects.js",
     "test": "node --import tsx --test tests/*.test.mjs"
   },
   "dependencies": {

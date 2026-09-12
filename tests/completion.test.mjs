@@ -22,6 +22,7 @@ let failEmail = false;
 let cleanupOverride;
 let generations = 0;
 let sentEmails = [];
+let responsiveQuestion;
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (url, options) => {
   if (String(url) === "https://api.resend.com/emails") {
@@ -37,6 +38,7 @@ anthropic.messages.create = async request => {
   const name = request.tool_choice.name;
   let input;
   if (name === "ask") input = { question: "Thanks for sharing your story.", move: "close", reasoning: "Test close", topic: "story", beats_now_covered: [], should_end: true };
+  if (name === "ask" && responsiveQuestion) input = { ...input, question: responsiveQuestion, move: "follow_up", should_end: false };
   if (name === "clean") input = { answers: JSON.parse(request.messages[0].content).map(text => cleanupOverride || (text === raw ? cleaned : formatTranscriptText(text))) };
   if (name === "deliver") {
     generations++;
@@ -290,4 +292,133 @@ test("long Spanish PDF wraps across pages", async () => {
   const { writeFile } = await import("node:fs/promises");
   await writeFile(join(artifactDir, "long-spanish.pdf"), pdf);
   assert.ok(pdf.length > 5000);
+});
+
+test("green dropdowns support keyboard selection, dismissal, themes and small viewports", async () => {
+  const context = await browser.newContext({ viewport: { width: 320, height: 740 }, reducedMotion: "reduce" });
+  const page = await context.newPage();
+  try {
+    await page.goto(base);
+    const language = page.locator("#language-trigger");
+    await language.press("Space");
+    assert.equal(await language.getAttribute("aria-expanded"), "true");
+    await language.press("End");
+    await language.press("Enter");
+    assert.equal(await page.locator("#language").inputValue(), "es");
+    assert.match(await page.locator("#configSummary").textContent(), /Español/);
+    await language.press("Space");
+    await language.press("Home");
+    await language.press("Escape");
+    assert.equal(await page.locator("#language").inputValue(), "es");
+    assert.equal(await language.getAttribute("aria-expanded"), "false");
+    await language.press("e");
+    await language.press("Enter");
+    assert.equal(await page.locator("#language").inputValue(), "en");
+    for (const theme of ["light", "dark"]) {
+      await page.locator("#themeChoice-trigger").click();
+      await page.getByRole("option", { name: theme === "dark" ? "Dark" : "Light", exact: true }).click();
+      await language.click();
+      const selected = page.locator('#language-options [aria-selected="true"]');
+      const colors = await selected.evaluate(el => ({ actual: getComputedStyle(el).backgroundColor, token: getComputedStyle(document.documentElement).getPropertyValue("--action").trim() }));
+      assert.equal(colors.actual, theme === "dark" ? "rgb(186, 207, 158)" : "rgb(52, 70, 40)");
+      const bounds = await page.locator("#language-options").boundingBox();
+      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 320);
+      assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= 740);
+      await page.screenshot({ path: join(artifactDir, `dropdown-${theme}-320.png`) });
+      await language.press("Tab");
+      assert.equal(await language.getAttribute("aria-expanded"), "false");
+    }
+    await page.reload();
+    assert.match(await page.locator("#themeChoice-trigger").textContent(), /Dark/);
+    await language.click();
+    await page.locator("#subjectName").click();
+    assert.equal(await language.getAttribute("aria-expanded"), "false");
+  } finally { await context.close(); }
+});
+
+test("all app surfaces fit mobile, tablet, desktop and landscape with long content in both themes", async () => {
+  const longWord = "LongUnbrokenStory".repeat(18);
+  const id = await finished(longWord);
+  await api(`/api/interviews/${id}/consent`, { visibility: "on-the-record" });
+  const result = await ready(id);
+  store.putContent(id, { ...result.content, nail: longWord, summary: longWord, keyTakeaways: [longWord], pullQuotes: [{ quote: longWord, why: longWord }] });
+  const { data: liveRoom } = await api("/api/interviews", { assignmentId: result.assignmentId, mode: "text" });
+  const consentRoom = { ...result, id: "responsive-consent", consentAt: undefined, visibility: "private" };
+  store.putInterview(consentRoom);
+  const sizes = [[280, 653], [320, 740], [390, 844], [520, 900], [639, 900], [640, 900], [768, 1024], [1023, 900], [1024, 768], [1440, 900], [1920, 1080], [2560, 1440], [568, 320], [844, 390]];
+  responsiveQuestion = longWord;
+  const check = async (page, surface) => {
+    const issues = await page.evaluate(() => {
+      const width = document.documentElement.clientWidth;
+      const issues = [];
+      if (document.documentElement.scrollWidth > width + 1) issues.push(`document: ${document.documentElement.scrollWidth} > ${width}`);
+      for (const el of document.querySelectorAll(".assignment,.wall-panel,.choice-card,.style-choice,.journey,.consent-choice,.email-row,.out,.heard,.session-meta,header,button,input,select,textarea")) {
+        if (!el.getClientRects().length) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.left < -1 || rect.right > width + 1) issues.push(`${el.id || el.className || el.tagName}: outside viewport`);
+        if (!el.matches("input,select,textarea") && el.scrollWidth > el.clientWidth + 2) issues.push(`${el.id || el.className}: content overflow ${el.scrollWidth}/${el.clientWidth}`);
+      }
+      return issues;
+    });
+    if (issues.length) await page.screenshot({ path: join(artifactDir, "responsive-failure.png"), fullPage: true });
+    assert.deepEqual(issues, [], `${surface} at ${JSON.stringify(page.viewportSize())}`);
+  };
+  for (const theme of ["light", "dark"]) {
+    store.putAssignment({ ...result.assignment, language: theme === "dark" ? "es" : "en" });
+    for (const [width, height] of sizes) {
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce" });
+      await context.addInitScript(() => {
+        // Exercise voice layout without accessing hardware during layout tests.
+        window.SpeechRecognition = class { start() {} stop() {} };
+      });
+      await context.route("**/api/tts", route => route.fulfill({ status: 200, contentType: "audio/mpeg", body: "test-audio" }));
+      const page = await context.newPage();
+      const errors = [];
+      page.on("pageerror", e => errors.push(e.message));
+      try {
+        await page.goto(base);
+        await page.locator("#themeChoice-trigger").click();
+        await page.getByRole("option", { name: theme === "dark" ? "Dark" : "Light", exact: true }).click();
+        await page.locator("#subjectName").fill(longWord);
+        assert.equal(await page.locator(".brand-logo img").evaluate(img => img.complete && img.naturalWidth > 0), true);
+        assert.equal(await page.locator(".masthead .product-label").isVisible(), true);
+        await page.locator("#company").fill(longWord);
+        await page.locator("#language-trigger").click();
+        await page.getByRole("option", { name: "Español", exact: true }).click();
+        await page.locator("#settingsPanel summary").click();
+        await page.locator("#questionLimit-trigger").click();
+        await page.getByRole("option", { name: "Set a limit", exact: true }).click();
+        await page.locator(".journey summary").nth(1).click();
+        await page.locator(".archive-disclosure summary").click();
+        await check(page, "setup, settings, journey and archive");
+        if ([320, 768, 1440].includes(width)) await page.screenshot({ path: join(artifactDir, `setup-${theme}-${width}.png`) });
+        await page.locator("#guidedMode").check();
+        await check(page, "guided setup");
+        await page.goto(`${base}/i/${liveRoom.id}?operator=1`);
+        await page.locator("#start").waitFor({ state: "visible" });
+        await check(page, "interview intro");
+        await page.locator("#modeText").click();
+        await page.locator("#start").click();
+        await page.locator("#typedText").waitFor({ state: "visible" });
+        await page.locator("#typedText").fill(longWord);
+        await page.locator("#logBox summary").click();
+        await check(page, "live text interview and operator transcript");
+        if (width === 768) await page.screenshot({ path: join(artifactDir, `live-${theme}-${width}.png`) });
+        await page.locator("#swap").click();
+        await page.locator("#heard").waitFor({ state: "visible" });
+        await check(page, "live voice controls");
+        await page.goto(`${base}/i/${consentRoom.id}`);
+        await page.locator("#consent").waitFor({ state: "visible" });
+        await check(page, "consent");
+        await page.goto(`${base}/i/${id}`);
+        await page.locator("#endBar").waitFor({ state: "visible" });
+        await page.locator("#emailToggle").click();
+        await page.locator("#summaryEmail").fill(`${"a".repeat(60)}@example.com`);
+        await check(page, "completion, story and email");
+        if ([320, 768, 1440].includes(width)) await page.screenshot({ path: join(artifactDir, `responsive-${theme}-${width}.png`), fullPage: true });
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    }
+  }
+  responsiveQuestion = undefined;
 });
