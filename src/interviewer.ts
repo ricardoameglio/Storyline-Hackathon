@@ -70,7 +70,8 @@ One short clause is the whole acknowledgement: "Ricky it is." or "Sorry, Ricardo
 —" and then your question. No apology paragraph, no repeating it back twice, and
 never make them ask a second time. The name they chose is the one printed on a
 public record with their story under it; getting it wrong is the one mistake they
-will notice before they read a single word.
+will notice before they read a single word. This rule is about ACCEPTING a
+correction they offer — it is never a reason to ask what their name is.
 
 WHEN THEY ASK TO KEEP GOING:
 Your closing question is "anything you'd like to add?" — and sometimes the answer
@@ -190,9 +191,10 @@ export function toneRule(tone?: Tone, language?: Language): string {
     return `
 
 TONE: PROFESSIONAL.
-Warm but composed, like a reporter someone trusts with a real story. Plain
-sentences, no slang, no jokes. Your interest shows in what you ask next, not in
-how you react.`;
+A reporter people trust with a real story: warm, direct, interested. Plain
+spoken sentences, no slang, no performance. You are not stiff and you are not
+formal — you just let the interest show in what you ask next rather than in how
+you react to what they said.`;
   }
   return `
 
@@ -229,6 +231,21 @@ HOW TO BE FUNNY HERE
 
 IF THREE QUESTIONS GO BY WITH NO PERSONALITY AT ALL, YOU HAVE DRIFTED BACK INTO
 THE PROFESSIONAL VOICE. Fix it on the very next turn.
+
+YOU CAN ACTUALLY LAUGH. Your voice understands delivery cues written in square
+brackets, and they are spoken as sound, not read as words:
+  [laughs]  [chuckles]  [sighs]  [exhales]  [curious]  [excited]
+Put one at the FRONT of a line, before the words, when the moment genuinely
+earned it: "[laughs] Okay, a garage. What did the neighbours think?"
+- At most one per line, and not on most lines — roughly one in three or four.
+  A person who laughs at everything is not warm, they are nervous, and it stops
+  meaning anything by the fourth time.
+- Only when something is actually funny to you. Never as punctuation, never to
+  soften a question, never on a line that is doing serious work.
+- [sighs] and [exhales] belong to weight, not comedy — use them almost never.
+- The instant the story turns serious, no cues at all. See the exception below.
+- Never write a cue that describes them, only how YOU deliver the line. Nothing
+  in brackets is ever about the person you are interviewing.
 
 Three things the jokes never cost you: one question at a time and under twenty
 words (the reaction is separate and does not count); no complimenting the answer
@@ -387,6 +404,8 @@ export interface NextQuestion {
   they_are_leaving?: boolean;
   /** They told you what to call them. It goes on the record. */
   corrected_name?: string;
+  /** The line with its delivery cues intact — for the voice, never the page. */
+  spoken?: string;
   should_end: boolean;
 }
 
@@ -402,9 +421,13 @@ export interface NextQuestion {
  * an exit, so anything followed by "to" is left alone.
  */
 const EXIT_EN =
-  /\b(i (?:have|need) to (?:go|run|leave|head out|get going)|i(?:'|’)?m gonna (?:head out|take off)|i gotta (?:go|run)|i(?:'|’)?m out of time|i(?:'|’)?m all out of time|(?:that|that's|thats) all (?:the time i have|i have time for)|i should get going|i have to take this|i(?:'|’)?m done here)\b(?!\s+to\b)/i;
+  /\b(i (?:have|need) to (?:go|run|leave|head out|get going)|i(?:'|’)?m gonna (?:head out|take off)|i gotta (?:go|run)|i(?:'|’)?m out of time|i(?:'|’)?m all out of time|(?:that|that's|thats) all (?:the time i have|i have time for)|i should get going|i have to take this|i(?:'|’)?m done here|(?:let(?:'|’)?s |we can |please )?(?:end|stop|finish) (?:the |this )?interview|(?:that|that's|thats|we're|were) (?:it|all|done|finished)(?: for (?:now|today))?)\b(?!\s+to\b)/i;
 const EXIT_ES =
-  /\b(me tengo que ir|ya me tengo que ir|tengo que irme|ya me voy|se me hizo tarde|ya no tengo tiempo|no me queda tiempo|tengo que salir corriendo|hasta aqu[ií] llego)\b/i;
+  // No "ya está" and no bare "ya terminamos": in Spanish those close anything —
+  // a delivery, a sentence, a coffee — and ending someone's interview on an
+  // ambiguity costs far more than missing one. The verbs that name the
+  // interview itself are the only ones safe enough to act on alone.
+  /\b(me tengo que ir|ya me tengo que ir|tengo que irme|ya me voy|se me hizo tarde|ya no tengo tiempo|no me queda tiempo|tengo que salir corriendo|hasta aqu[ií] llego|(?:termina|terminemos|acaba|acabemos|cierra|cerremos|para|paremos)(?:mos)? (?:la |esta )?entrevista)\b/i;
 
 export function exitSignal(text: string): boolean {
   const t = (text ?? "").trim();
@@ -612,9 +635,14 @@ out you are not running out of interview — you are failing to write the one th
 fits. Dropping every beat and going home is the worst outcome available.
 
 THIS ASSIGNMENT
-You are interviewing ${assignment.subjectName}${
+You are interviewing ${assignment.subjectName || "someone whose name you do not have yet"}${
     assignment.subjectRole ? `, ${assignment.subjectRole}` : ""
   } about ${assignment.company || (assignment.interviewType ? "their experiences and perspective; a company is not required" : "their work — they did not name a company, so find out what they actually do before you go deep")}.
+${
+    assignment.subjectName
+      ? `THEIR NAME IS ${assignment.subjectName.toUpperCase()}. You already have it. NEVER ask for it again — not to confirm it, not to check the spelling, not "and you are?". The transcript below starts after you were introduced, so you will not see yourself being told; that does not mean it did not happen. Asking a second time tells them you were not listening the first.`
+      : `You do not have their name. Ask for it in your very first question, plainly, and never ask again after that.`
+  }
 ${assignment.interviewType ? `INTERVIEW LENS: ${interviewStyle(assignment.interviewType, assignment.language).angle} Follow their answers dynamically; this is a lens, not a script. For personal stories, do not require a business or professional framing.` : ""}
 The editor's angle: ${assignment.angle}
 ${assignment.backgroundNotes ? `What you know going in: ${assignment.backgroundNotes}` : ""}

@@ -27,12 +27,47 @@ const TTS_MODEL = process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2";
 const num = (v: string | undefined, fallback: number) =>
   v === undefined || v === "" || Number.isNaN(Number(v)) ? fallback : Number(v);
 
-const SETTINGS = {
-  stability: num(process.env.ELEVENLABS_STABILITY, 0.3),
-  similarity_boost: num(process.env.ELEVENLABS_SIMILARITY, 0.75),
-  style: num(process.env.ELEVENLABS_STYLE, 0.55),
-  use_speaker_boost: true,
-};
+/**
+ * v3 is a different model, not a newer version of the same one, and it takes
+ * different settings. It has no `style` and no `use_speaker_boost`, and its
+ * stability is three discrete modes rather than a dial — Creative, Natural,
+ * Robust. Send it the v2 numbers and you get a flat, faintly robotic read,
+ * which is exactly what happens if you only change the model id.
+ */
+const isV3 = TTS_MODEL.startsWith("eleven_v3");
+
+/** 0 Creative (most expressive), 0.5 Natural, 1 Robust. Nothing in between. */
+const v3Stability = (v: number) => (v < 0.25 ? 0 : v < 0.75 ? 0.5 : 1);
+
+const SETTINGS = isV3
+  ? { stability: v3Stability(num(process.env.ELEVENLABS_STABILITY, 0.5)) }
+  : {
+      stability: num(process.env.ELEVENLABS_STABILITY, 0.3),
+      similarity_boost: num(process.env.ELEVENLABS_SIMILARITY, 0.75),
+      style: num(process.env.ELEVENLABS_STYLE, 0.55),
+      use_speaker_boost: true,
+    };
+
+/**
+ * Delivery cues like [laughs] only mean something to v3. Every other model
+ * reads them out loud, word for word, which is worse than not having them.
+ */
+export const supportsAudioTags = () => isV3;
+
+/**
+ * A whitelist, not a pattern. Anything-in-brackets would also swallow a real
+ * sentence — "he said [the thing nobody says] out loud" — and quietly delete a
+ * subject's own words from their own transcript. Only these are cues.
+ */
+const CUES = [
+  "laughs", "laughing", "chuckles", "giggles", "sighs", "exhales", "inhales",
+  "breathes", "pauses", "whispers", "shouts", "excited", "curious", "sarcastic",
+  "amused", "surprised", "warmly", "softly", "gently", "seriously",
+];
+const CUE_RE = new RegExp(`\\[\\s*(?:${CUES.join("|")})\\s*\\]`, "gi");
+
+export const stripAudioTags = (text: string) =>
+  String(text ?? "").replace(CUE_RE, "").replace(/\s{2,}/g, " ").trim();
 
 export const ttsEnabled = () => Boolean(process.env.ELEVENLABS_API_KEY);
 
@@ -98,8 +133,15 @@ export async function speak(text: string, language?: string): Promise<ArrayBuffe
   const key = process.env.ELEVENLABS_API_KEY;
   if (!key) return null;
 
+  // v3 rejects the latency hint outright — and a rejected request is worse than
+  // a slow one, because the browser quietly falls back to its own robot voice
+  // and you spend an hour blaming the model settings.
+  const url =
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceFor(language)}/stream` +
+    (isV3 ? "" : "?optimize_streaming_latency=3");
+
   const res = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voiceFor(language)}/stream?optimize_streaming_latency=3`,
+    url,
     {
       method: "POST",
       headers: {
@@ -108,7 +150,8 @@ export async function speak(text: string, language?: string): Promise<ArrayBuffe
         Accept: "audio/mpeg",
       },
       body: JSON.stringify({
-        text,
+        // Tags reach the voice only when the voice understands them.
+        text: isV3 ? text : stripAudioTags(text),
         model_id: TTS_MODEL,
         voice_settings: SETTINGS,
       }),
