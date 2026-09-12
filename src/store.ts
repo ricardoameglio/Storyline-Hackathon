@@ -1,12 +1,13 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Assignment, GeneratedContent, Interview } from "./types.ts";
+import { isOnTheRecord } from "./visibility.ts";
 
 /**
  * Hackathon-grade persistence: in memory, mirrored to a JSON file so a
  * server restart at 2am doesn't lose the interviews you already ran.
  */
-const DATA_DIR = join(process.cwd(), "data");
+const DATA_DIR = process.env.PROLOGUE_DATA_DIR || join(process.cwd(), "data");
 const DATA_FILE = join(DATA_DIR, "store.json");
 
 interface Snapshot {
@@ -57,6 +58,7 @@ export const store = {
   },
 
   putInterview(i: Interview) {
+    i.visibility ??= "private";
     db.interviews[i.id] = i;
     flush();
     return i;
@@ -72,7 +74,7 @@ export const store = {
   },
 
   putContent(interviewId: string, c: GeneratedContent) {
-    db.content[interviewId] = { ...db.content[interviewId], ...c };
+    db.content[interviewId] = c;
     flush();
     return db.content[interviewId];
   },
@@ -81,15 +83,15 @@ export const store = {
   },
 
   /** Demo stat: "N vendors interviewed at Mashup last night." */
-  stats() {
-    const interviews = Object.values(db.interviews);
+  stats(publicOnly = false) {
+    const interviews = Object.values(db.interviews).filter((i) => !publicOnly || isOnTheRecord(i));
     const finished = interviews.filter((i) => i.status === "finished");
     const minutes = finished.reduce(
       (sum, i) => sum + ((i.endedAt ?? 0) - (i.startedAt ?? 0)) / 60000,
       0,
     );
     return {
-      assignments: Object.keys(db.assignments).length,
+      assignments: publicOnly ? new Set(interviews.map((i) => i.assignmentId)).size : Object.keys(db.assignments).length,
       interviewsStarted: interviews.length,
       interviewsFinished: finished.length,
       minutesOnTheRecord: Math.round(minutes),

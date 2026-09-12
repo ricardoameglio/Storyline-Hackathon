@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import { pathToFileURL } from "node:url";
 import { join } from "node:path";
 import { preflight } from "./anthropic.ts";
 import { generateContent } from "./content.ts";
@@ -7,9 +8,15 @@ import { greeting, intakeOpener, intakeQuestion, nextQuestion } from "./intervie
 import { id, store } from "./store.ts";
 import { preflightTts, speak, ttsEnabled } from "./tts.ts";
 import type { Assignment, Deliverable, Interview, Language } from "./types.ts";
+import { isOnTheRecord, recordConsent } from "./visibility.ts";
+import { summaryText } from "./results.ts";
+import { interviewPdf } from "./pdf.ts";
+import { emailEnabled, sendSummaryEmail } from "./email.ts";
+import { z } from "zod";
 
-const app = express();
+export const app = express();
 app.use(express.json({ limit: "1mb" }));
+app.use("/api", (_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
 app.use(express.static(join(process.cwd(), "public")));
 
 const PORT = Number(process.env.PORT || 8787);
@@ -28,7 +35,29 @@ const DEFAULT_DELIVERABLES: Deliverable[] = [
  * they stand up, they say yes to publishing it. If it arrives tomorrow by
  * email, it never gets posted. Fire and forget; the room polls for it.
  */
+const contentJobs = new Map<string, Promise<import("./types.ts").GeneratedContent>>();
+
+function writeContent(interview: Interview) {
+  const active = contentJobs.get(interview.id);
+  if (active) return active;
+  const assignment = store.getAssignment(interview.assignmentId)!;
+  const job = generateContent(assignment, interview).then(c => {
+    store.putContent(interview.id, c);
+    return c;
+  }).finally(() => {
+    // Preserve a visibility choice made while generation was running.
+    const current = store.getInterview(interview.id)!;
+    store.putInterview({ ...current, rawTranscript: interview.rawTranscript,
+      cleanTranscript: interview.cleanTranscript, transcriptCleanup: interview.transcriptCleanup });
+    contentJobs.delete(interview.id);
+  });
+  contentJobs.set(interview.id, job);
+  return job;
+}
+
 function kickOffContent(interview: Interview) {
+  if (!interview.consentAt || interview.status !== "finished") return;
+  if (contentJobs.has(interview.id)) return;
   if (store.getContent(interview.id)) return;
   const assignment = store.getAssignment(interview.assignmentId);
   if (!assignment) return;
@@ -39,7 +68,7 @@ function kickOffContent(interview: Interview) {
   if (said.length === 0) return;
 
   console.log(`[content] writing up ${interview.id}…`);
-  generateContent(assignment, interview)
+  writeContent(interview)
     .then((c) => {
       store.putContent(interview.id, c);
       console.log(`[content] ${interview.id} ready`);
@@ -185,10 +214,15 @@ app.get("/api/interviews/:iid", (req, res) => {
   const interview = store.getInterview(req.params.iid);
   if (!interview) return res.status(404).json({ error: "No such interview." });
   const assignment = store.getAssignment(interview.assignmentId);
+  const content = store.getContent(interview.id);
+  if (!content) kickOffContent(interview);
   res.json({
     ...interview,
     assignment,
-    content: store.getContent(interview.id),
+    visibility: interview.visibility ?? "private",
+    content,
+    summaryText: content && !content.error && assignment ? summaryText(assignment, interview, content) : undefined,
+    emailEnabled: emailEnabled(),
     url: `${BASE}/i/${interview.id}`,
     ttsEnabled: ttsEnabled(),
   });
@@ -221,6 +255,7 @@ const asQuestion = (text: string, reasoning: string) => ({
 app.post("/api/interviews/:iid/start", async (req, res) => {
   const interview = store.getInterview(req.params.iid);
   if (!interview) return res.status(404).json({ error: "No such interview." });
+  if (interview.status === "finished") return res.status(409).json({ error: "This interview is already complete." });
   const assignment = store.getAssignment(interview.assignmentId)!;
 
   interview.status = "live";
@@ -271,6 +306,7 @@ app.post("/api/interviews/:iid/start", async (req, res) => {
 app.post("/api/interviews/:iid/answer", async (req, res) => {
   const interview = store.getInterview(req.params.iid);
   if (!interview) return res.status(404).json({ error: "No such interview." });
+  if (interview.status !== "live") return res.status(409).json({ error: "This interview is not in progress." });
   const assignment = store.getAssignment(interview.assignmentId)!;
   const text = String(req.body?.text ?? "").trim();
   if (!text) return res.status(400).json({ error: "Empty answer." });
@@ -354,11 +390,28 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
 app.post("/api/interviews/:iid/end", (req, res) => {
   const interview = store.getInterview(req.params.iid);
   if (!interview) return res.status(404).json({ error: "No such interview." });
+  const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+  if (interview.status === "live" && text) interview.turns.push({
+    speaker: "subject", text, at: Date.now() - (interview.startedAt ?? Date.now()), phase: interview.phase ?? "interview",
+  });
   interview.status = "finished";
-  interview.endedAt = Date.now();
+  interview.endedAt ??= Date.now();
   store.putInterview(interview);
   kickOffContent(interview);
   res.json(interview);
+});
+
+app.post("/api/interviews/:iid/consent", (req, res) => {
+  const interview = store.getInterview(req.params.iid);
+  if (!interview) return res.status(404).json({ error: "No such interview." });
+  try {
+    recordConsent(interview, req.body?.visibility);
+    store.putInterview(interview);
+    kickOffContent(interview);
+    res.json(interview);
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
+  }
 });
 
 /* ------------------------------------------------------------------ */
@@ -368,7 +421,9 @@ app.post("/api/interviews/:iid/end", (req, res) => {
 app.post("/api/interviews/:iid/content", async (req, res) => {
   const interview = store.getInterview(req.params.iid);
   if (!interview) return res.status(404).json({ error: "No such interview." });
-  const assignment = store.getAssignment(interview.assignmentId)!;
+  if (!interview.consentAt || interview.status !== "finished") {
+    return res.status(409).json({ error: "Finish the interview and choose its visibility first." });
+  }
   if (
     interview.turns.filter(
       (t) => t.speaker === "subject" && (t.phase ?? "interview") === "interview",
@@ -382,7 +437,7 @@ app.post("/api/interviews/:iid/content", async (req, res) => {
   const existing = store.getContent(interview.id);
   if (existing && !existing.error && req.query.force !== "1") return res.json(existing);
   try {
-    const content = await generateContent(assignment, interview);
+    const content = await writeContent(interview);
     store.putContent(interview.id, content);
     res.json(content);
   } catch (err) {
@@ -394,6 +449,50 @@ app.post("/api/interviews/:iid/content", async (req, res) => {
 /* ------------------------------------------------------------------ */
 /* voice + misc                                                        */
 /* ------------------------------------------------------------------ */
+
+app.get("/api/interviews/:iid/pdf", async (req, res) => {
+  const interview = store.getInterview(req.params.iid);
+  if (!interview) return res.status(404).json({ error: "No such interview." });
+  const content = store.getContent(interview.id);
+  if (!interview.consentAt || interview.status !== "finished" || !content || content.error) {
+    return res.status(409).json({ error: "Your interview result is not ready yet." });
+  }
+  try {
+    const pdf = await interviewPdf(store.getAssignment(interview.assignmentId)!, interview, content);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="prologue-${interview.id}.pdf"`);
+    res.send(pdf);
+  } catch (err) {
+    console.error("[pdf]", err);
+    res.status(500).json({ error: "Could not create the PDF. Please try again." });
+  }
+});
+
+const emailRequests = new Map<string, number>();
+app.post("/api/interviews/:iid/email", async (req, res) => {
+  const interview = store.getInterview(req.params.iid);
+  if (!interview) return res.status(404).json({ error: "No such interview." });
+  const parsed = z.string().trim().email().max(254).safeParse(req.body?.email);
+  if (!parsed.success) return res.status(400).json({ error: "Enter a valid email address." });
+  const content = store.getContent(interview.id);
+  if (!interview.consentAt || interview.status !== "finished" || !content || content.error) {
+    return res.status(409).json({ error: "Your interview result is not ready yet." });
+  }
+  if (!emailEnabled()) return res.status(503).json({ error: "Email is not configured. Copy the summary or download the PDF instead." });
+  const now = Date.now();
+  for (const [key, at] of emailRequests) if (now - at > 60000) emailRequests.delete(key);
+  const key = `${req.ip}:${interview.id}`;
+  if (emailRequests.has(key)) return res.status(429).json({ error: "Please wait a minute before sending another summary." });
+  emailRequests.set(key, now);
+  try {
+    await sendSummaryEmail(parsed.data, store.getAssignment(interview.assignmentId)!, interview, content, `${BASE}/i/${interview.id}`);
+    res.json({ sent: true });
+  } catch (err) {
+    emailRequests.delete(key);
+    console.error("[email]", (err as Error).message);
+    res.status(502).json({ error: "Your email was not confirmed. Please try again." });
+  }
+});
 
 app.post("/api/tts", async (req, res) => {
   const text = String(req.body?.text ?? "").slice(0, 800);
@@ -415,7 +514,7 @@ app.get("/api/wall", (_req, res) => {
   // Everything the closing slide needs: who we talked to and what came out.
   const rows = store
     .listInterviews()
-    .filter((i) => i.status === "finished")
+    .filter(isOnTheRecord)
     .map((i) => {
       const a = store.getAssignment(i.assignmentId);
       const c = store.getContent(i.id);
@@ -429,14 +528,14 @@ app.get("/api/wall", (_req, res) => {
         topQuote: c?.pullQuotes?.[0]?.quote,
       };
     });
-  res.json({ stats: store.stats(), rows });
+  res.json({ stats: store.stats(true), rows });
 });
 
 app.get("/i/:iid", (_req, res) =>
   res.sendFile(join(process.cwd(), "public", "interview.html")),
 );
 
-app.listen(PORT, () => {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) app.listen(PORT, () => {
   console.log(`\n  Prologue Interviewer`);
   console.log(`  console   ${BASE}/`);
   console.log(`  voice tts ${ttsEnabled() ? "ElevenLabs" : "browser fallback (no key set)"}\n`);
