@@ -1,5 +1,5 @@
 import { MODEL, anthropic, toolResult } from "./anthropic.ts";
-import type { Assignment, Interview, InterviewMove, InterviewType, Language, Turn } from "./types.ts";
+import type { Assignment, Interview, InterviewMove, InterviewType, Language, Tone, Turn } from "./types.ts";
 import { interviewStyle } from "./interview-styles.ts";
 
 /**
@@ -173,6 +173,82 @@ HOW YOU FINISH:
  * no Iberian "vosotros", no regional slang. The people being interviewed are
  * business owners, not a particular country's internet.
  */
+/**
+ * How she sounds.
+ *
+ * The temptation with a "funny" setting is to let the model perform, and a
+ * performing interviewer stops listening — it starts writing punchlines about
+ * the last answer instead of finding the next question. So this changes the
+ * register and nothing else: same short questions, same ban on complimenting
+ * answers, same job. The one rule that makes it safe to ship is the last one:
+ * the moment the story turns serious, the humour is gone and it does not come
+ * back. Somebody telling you about the year they nearly lost the shop does not
+ * want a quip, and getting that wrong once ruins the whole interview.
+ */
+export function toneRule(tone?: Tone, language?: Language): string {
+  if (tone !== "friendly") {
+    return `
+
+TONE: PROFESSIONAL.
+Warm but composed, like a reporter someone trusts with a real story. Plain
+sentences, no slang, no jokes. Your interest shows in what you ask next, not in
+how you react.`;
+  }
+  return `
+
+TONE: FRIENDLY — BE FUNNY. THIS IS THE POINT, NOT A GARNISH.
+You are the interviewer people actually want to talk to: quick, warm, a bit of a
+smartass. Someone who has heard a thousand stories and still finds this one
+funny. If a stranger read this transcript, they should be able to tell you were
+enjoying yourself.
+
+REACT BEFORE YOU ASK, ON MOST TURNS. Not once an interview — most turns. A line
+of your own, then the question, said as one breath. Put it at the front of the
+question, or in the bridge field — and in this tone the bridge may carry a
+reaction even on a follow-up, which is the one place that rule bends:
+  "A garage. It's always a garage."
+  "Okay, so you did the stupid brave thing."
+  "Four in the morning. On purpose. Right."
+  "That's a terrible plan and it obviously worked."
+  "Your mother said WHAT."
+  "I love that you remember the exact sandwich."
+Notice what those do: they land on the detail they just gave you, and they make
+the next question feel inevitable. That is the move. Say it in your head — if it
+would get a snort from someone standing nearby, it is right.
+
+HOW TO BE FUNNY HERE
+- Dry beats loud. Understatement, a flat repeat of the absurd thing they said, a
+  well-placed "sure". Never a setup-and-punchline, never a pun you are proud of.
+- Be specific. "It's always a garage" is funny. "That's so interesting" is not.
+  The joke lives in their detail, so you have to have listened to make one.
+- Tease the SITUATION, never the person: the landlord, the weather, bureaucracy,
+  the 4am alarm, your own questions, yourself. Them, never once.
+- Contractions, fragments, ordinary words. Talk like a person at a bar.
+- You may be a little self-deprecating. "That was a boring question, ignore it —"
+  is an excellent way to ask a better one.
+
+IF THREE QUESTIONS GO BY WITH NO PERSONALITY AT ALL, YOU HAVE DRIFTED BACK INTO
+THE PROFESSIONAL VOICE. Fix it on the very next turn.
+
+Three things the jokes never cost you: one question at a time and under twenty
+words (the reaction is separate and does not count); no complimenting the answer
+itself ("that's amazing" stays banned); and you still chase the number, the name,
+the day it happened.
+
+THE ONE EXCEPTION, AND IT IS ABSOLUTE. The second the story turns — grief,
+illness, an injury, money they lost, someone who hurt them, something that
+failed — the humour stops completely and does not come back, even if the mood
+lifts later. Read what they just said, not the setting you were given. A joke
+landing on someone's worst year is the one thing a person never forgives.${
+    language === "es"
+      ? `
+- En español: mismo humor, seco y cercano. Nada de modismos de un solo país — el
+  chiste tiene que funcionar igual en Panamá que en México. "Un garaje. Siempre
+  es un garaje." / "A las cuatro de la mañana. A propósito. Ya."`
+      : ""
+  }`;
+}
+
 export function languageRule(language?: Language): string {
   if (language !== "es") return "";
   return `
@@ -517,7 +593,7 @@ export async function nextQuestion(
       "earlier, or an uncovered beat. Changing the wording is not changing the subject.";
   }
 
-  const system = `${CRAFT}${languageRule(assignment.language)}
+  const system = `${CRAFT}${toneRule(assignment.tone, assignment.language)}${languageRule(assignment.language)}
 
 YOUR BEATS ARE A GUESS — REWRITE THEM AS YOU GO
 The beat list below was written before anyone knew who you would be talking to, and
@@ -709,6 +785,7 @@ export async function intakeQuestion(
   interview: Interview,
   language?: Language,
   interviewType?: InterviewType,
+  tone?: Tone,
 ): Promise<IntakeStep> {
   const asked = turnsInPhase(interview).filter((t) => t.speaker === "interviewer").length;
   const pressure =
@@ -719,7 +796,7 @@ export async function intakeQuestion(
   const msg = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 400,
-    system: INTAKE + languageRule(language) + pressure + (interviewType
+    system: INTAKE + toneRule(tone, language) + languageRule(language) + pressure + (interviewType
       ? `\nSELECTED LENS: ${interviewStyle(interviewType, language).angle} Keep this direction in the handoff. ${interviewType === "personal" ? "For this personal conversation, collect their name and what experience they want to share instead of requiring their work or business. Their name alone is enough to begin." : ""}`
       : ""),
     tools: [INTAKE_TOOL],
@@ -839,7 +916,15 @@ export function warningLine(language?: Language): string {
     : "Let me stop you there. This ends up as a public record with your name on it, so I can't go with you there. If it happens again I'll have to end the interview. Let's keep going.";
 }
 
-export function intakeOpener(language?: Language): string {
+export function intakeOpener(language?: Language, tone?: Tone): string {
+  // The first line sets the expectation for the whole conversation, so it has
+  // to match the tone they picked — a formal hello followed by a wisecrack is
+  // worse than either one on its own.
+  if (tone === "friendly") {
+    return language === "es"
+      ? `Hola, soy ${INTERVIEWER_NAME}. Antes de meternos en lo bueno, cuéntame quién eres — prometo que son dos preguntas, no un formulario.`
+      : `Hey, I'm ${INTERVIEWER_NAME}. Before we get to the good part, tell me who you are — two questions, I promise, not a form.`;
+  }
   return language === "es"
     ? `Hola, soy ${INTERVIEWER_NAME}. Gracias por darme unos minutos. Te voy a preguntar un par de cosas sobre ti y después entramos en materia.`
     : `Hey — I'm ${INTERVIEWER_NAME}. Thanks for giving me a few minutes. I'm going to ask you a bit about yourself and then we'll get into it.`;
@@ -848,6 +933,14 @@ export function intakeOpener(language?: Language): string {
 /** Warm cold-open so the subject isn't hit with a hard question first. */
 export function greeting(assignment: Assignment): string {
   const first = (assignment.subjectName || "").split(" ")[0];
+  if (assignment.tone === "friendly") {
+    const about = assignment.interviewType === "personal"
+      ? (assignment.language === "es" ? "tu historia" : "your story")
+      : assignment.company?.trim() || (assignment.language === "es" ? "lo que haces" : "what you do");
+    return assignment.language === "es"
+      ? `Hola ${first}, soy ${INTERVIEWER_NAME}. Tenemos unos ${assignment.durationMinutes} minutos para hablar de ${about}. No hay respuestas malas — de verdad, he oído de todo. Cuando quieras.`
+      : `Hey ${first}, I'm ${INTERVIEWER_NAME}. We've got about ${assignment.durationMinutes} minutes to talk about ${about}. There are no wrong answers — I've heard worse, I promise. Whenever you're ready.`;
+  }
   if (assignment.language === "es") {
     const sobre = assignment.interviewType === "personal" ? "tu historia" : assignment.company?.trim() || "lo que haces";
     return `Hola ${first}, soy ${INTERVIEWER_NAME}. Gracias por esto. Te voy a preguntar sobre ${sobre} por unos ${assignment.durationMinutes} minutos. No hay respuestas malas — habla como le hablarías a un amigo. Cuando quieras.`;

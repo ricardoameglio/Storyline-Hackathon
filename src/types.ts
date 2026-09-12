@@ -9,8 +9,17 @@ export type Deliverable =
 /** What an editor hands the interviewer before it goes out. */
 export type InterviewType = "career" | "founder" | "personal" | "expert";
 
+/**
+ * How Kara sounds. It changes her register, never her craft: the questions stay
+ * short, she still doesn't compliment answers, and she still listens harder than
+ * she talks. A funny interviewer who stops listening is just a comedian.
+ */
+export type Tone = "professional" | "friendly";
+
 export interface Assignment {
   interviewType?: InterviewType;
+  /** Defaults to professional. */
+  tone?: Tone;
   id: string;
   createdAt: number;
   /** Who we're talking to. */

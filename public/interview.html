@@ -20,6 +20,11 @@
   .wrap{width:100%; max-width:680px}
   header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:36px}
   .brand{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+  /* The logo the console has. `.room-brand span` is the small "Interview"
+     label, so the mark needs its own class to escape that rule. */
+  .room-brand{display:inline-flex; align-items:center; gap:9px}
+  .room-brand .room-logo{display:inline-flex; width:30px; height:30px; flex:0 0 30px; margin:0}
+  .room-brand .room-logo img{width:100%; height:100%; object-fit:contain; display:block}
   .clock{font-variant-numeric:tabular-nums; font-size:12px; color:var(--muted)}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:7px}
   .dot.idle{background:var(--line)}
@@ -152,6 +157,10 @@
 </style>
 <link rel="stylesheet" href="/product.css" />
 <link rel="stylesheet" href="/completion.css" />
+<!-- The room was built before these existed, so it never got the shared brand
+     mark or the styled menus the rest of the product uses. -->
+<link rel="stylesheet" href="/selects.css" />
+<script src="/selects.js" defer></script>
 </head>
 <body class="interview-page">
 <div class="wrap">
@@ -172,7 +181,7 @@
   </div>
 
   <header>
-    <a class="room-brand" href="/">prologue <span>Interview</span></a>
+    <a class="room-brand" href="/"><span class="room-logo" aria-hidden="true"><img src="/prologue-logo.png" alt="" /></span>prologue <span>Interview</span></a>
     <span class="clock"><span class="dot idle" id="dot"></span><span id="clock">--:--</span></span>
     <label class="theme-control" for="themeChoice">Theme<select id="themeChoice"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
   </header>

@@ -19,7 +19,7 @@ import {
 } from "./interviewer.ts";
 import { id, store } from "./store.ts";
 import { preflightTts, speak, ttsEnabled } from "./tts.ts";
-import type { Assignment, Deliverable, Interview, Language } from "./types.ts";
+import type { Assignment, Deliverable, Interview, Language, Tone } from "./types.ts";
 import { isOnTheRecord, questionsAsked, recordConsent } from "./visibility.ts";
 import { screenAnswer, screenedGoodbye } from "./safety.ts";
 import { summaryText } from "./results.ts";
@@ -105,6 +105,9 @@ const DEFAULT_ANGLE =
 const DEFAULT_ANGLE_ES =
   "Encuentra la historia específica que vale la pena contar: el momento en que giró, el número que nadie espera, el trabajo que nadie ve.";
 
+/** Professional unless they asked for the looser one. */
+const parseTone = (value: unknown): Tone => (value === "friendly" ? "friendly" : "professional");
+
 app.post("/api/assignments", (req, res) => {
   const b = req.body ?? {};
   if (!b.subjectName?.trim()) {
@@ -117,6 +120,7 @@ app.post("/api/assignments", (req, res) => {
   const style = interviewType ? interviewStyle(interviewType, language) : undefined;
   const assignment: Assignment = {
     interviewType,
+    tone: parseTone(b.tone),
     id: id("asg"),
     createdAt: Date.now(),
     subjectName: b.subjectName.trim(),
@@ -151,6 +155,7 @@ app.post("/api/quickstart", (req, res) => {
   const style = interviewType ? interviewStyle(interviewType, language) : undefined;
   const assignment: Assignment = {
     interviewType,
+    tone: parseTone(b.tone),
     id: id("asg"),
     createdAt: Date.now(),
     subjectName: "",
@@ -316,7 +321,7 @@ app.post("/api/interviews/:iid/start", async (req, res) => {
 
   try {
     if (interview.phase === "intake") {
-      const step = await intakeQuestion(interview, assignment.language, assignment.interviewType);
+      const step = await intakeQuestion(interview, assignment.language, assignment.interviewType, assignment.tone);
       interview.turns.push({
         speaker: "interviewer",
         text: step.question,
@@ -328,7 +333,7 @@ app.post("/api/interviews/:iid/start", async (req, res) => {
       });
       store.putInterview(interview);
       return res.json({
-        greeting: intakeOpener(assignment.language),
+        greeting: intakeOpener(assignment.language, assignment.tone),
         question: asQuestion(step.question, step.reasoning),
         interview,
         assignment,
@@ -445,7 +450,7 @@ app.post("/api/interviews/:iid/answer", async (req, res) => {
     if (inIntake) {
       const [intakeVerdict, step] = await Promise.all([
         screening,
-        intakeQuestion(interview, assignment.language, assignment.interviewType),
+        intakeQuestion(interview, assignment.language, assignment.interviewType, assignment.tone),
       ]);
       if (intakeVerdict.stop) {
         if (strike(intakeVerdict.reason) >= 2) return endScreened(intakeVerdict.reason);
