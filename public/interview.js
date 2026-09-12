@@ -579,6 +579,7 @@ function showEnd(data = completedInterview) {
 }
 
 let awaitingConsent = false;
+let consentAttempt = 1;
 
 /**
  * Ask it in the interviewer's own voice and listen for the answer. The two
@@ -613,13 +614,14 @@ async function submitSpokenConsent(text) {
     const r = await fetch(`/api/interviews/${interviewId}/consent-voice`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, attempt: consentAttempt }),
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || T.failed);
 
-    // Too vague to act on. Ask again rather than guess about someone's privacy.
+    // Too vague to act on. Ask again once, then the server settles on private.
     if (data.unclear) {
+      consentAttempt = data.attempt || consentAttempt + 1;
       $("consentStatus").textContent = "";
       await say(data.say);
       if (mode !== "text") startListening();

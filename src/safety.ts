@@ -16,6 +16,14 @@ const SCREENER = `
 You are deciding whether an interview should be stopped, based on what the person
 being interviewed just said.
 
+THEY MAY BE SPEAKING SPANISH. Every rule below applies identically in Spanish, and
+the examples are in English only because that is the language this brief is written
+in. Judge the meaning, not the language. Spanish equivalents of the stop cases are
+stops: an explicit sexual description of what they do or who they are, a proposition
+aimed at the interviewer, a slur, a threat. Spanish equivalents of the allowed cases
+are allowed: ordinary swearing inside a real answer is how people talk about hard
+things in every language, and cutting them off mid-story is the worse mistake.
+
 STOP the interview if their message contains any of these:
 - A sexual proposition, advance or explicit sexual content — especially anything
   directed at the interviewer.
@@ -79,7 +87,12 @@ export async function screenAnswer(text: string): Promise<{ stop: boolean; reaso
           : ""),
       tools: [SCREEN_TOOL],
       tool_choice: { type: "tool", name: "screen" },
-      messages: [{ role: "user", content: `They just said: "${text}"` }],
+      messages: [
+        {
+          role: "user",
+          content: `They just said, in whatever language they speak: "${text}"`,
+        },
+      ],
     });
     return toolResult<{ stop: boolean; reason: string }>(msg) ?? { stop: false, reason: "" };
   } catch {

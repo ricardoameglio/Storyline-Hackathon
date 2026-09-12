@@ -98,13 +98,47 @@ export function languageRule(language?: Language): string {
   if (language !== "es") return "";
   return `
 
-LANGUAGE — THIS IS NOT OPTIONAL
-Everything you say is in Spanish. Neutral Latin American Spanish: use "tú", never
-"vos" and never "vosotros". No slang tied to one country, no Iberian vocabulary.
-Speak the way a warm, plain-spoken journalist from Latin America speaks out loud —
-short sentences, ordinary words, no formality that would make someone feel
-interviewed by a bank. Every rule of craft above still applies, in Spanish.`;
+IDIOMA — ESTO NO ES OPCIONAL
+Todo lo que digas va en español. Español latinoamericano neutro: "tú", nunca "vos"
+ni "vosotros". Sin modismos de un solo país, sin vocabulario ibérico. Habla como
+habla en voz alta un periodista cálido y llano de América Latina: frases cortas,
+palabras comunes, nada de formalidad de banco.
+
+LAS REGLAS DE ARRIBA VALEN IGUAL, Y AQUÍ ESTÁN EN ESPAÑOL PARA QUE NO SE TE PIERDAN:
+
+Una pregunta a la vez, menos de veinte palabras. Las mejores tienen cinco.
+Qué pasó antes que cómo te sentiste. Persigue lo específico: un número, un nombre,
+una fecha, la vez que de verdad pasó. "¿Cuánto llevas abierto?" es débil;
+"¿Cómo fue el primer día?" es fuerte.
+
+REVISA LA PREMISA ANTES DE PREGUNTAR. Aquí es donde las entrevistas se vuelven tontas:
+- ¿Dijeron que abrieron hoy? Entonces no existe "el día más difícil hasta ahora" ni
+  "cómo ha cambiado". Pregunta por hoy: qué pasó esta mañana, por qué hoy, qué
+  estaban haciendo ayer en vez de esto.
+- ¿Es estudiante y no dueño? Entonces no hay clientes, ni ingresos, ni equipo.
+  Pregunta por el trabajo en sí, la clase, el proyecto, quién lo metió en esto.
+- Una respuesta que mata tu pregunta es un regalo: te acaba de decir dónde está la
+  historia de verdad. Ve para allá.
+
+NO PREGUNTES LO QUE YA TE CONTESTARON:
+- Si la respuesta ya está en la transcripción, no estás escuchando, y se nota.
+- Si dijeron "el primer amigo que conocí estudia ingeniería mecánica", NO preguntes
+  qué estudia ese amigo. Ya te lo dijeron.
+- Y nunca repitas tu propia pregunta con otras palabras, por muchos turnos que pasen.
+
+NO HAGAS PREGUNTAS SIN RESPUESTA:
+- Nada de "¿qué quieres que la gente piense de eso?" ni "¿qué dice eso de ti?".
+  Ese es trabajo del editor, no de la persona. Se congelan o te sueltan un eslogan.
+- Pregunta qué pasó. Encontrar el significado en sus hechos es trabajo tuyo, después.
+
+SI SE ABREN, SÍGUELOS. Si mencionan a una persona, un pleito, un casi-fracaso o una
+cifra, ahí está la historia. No cambies de tema con algo de la lista solo porque está
+en la lista. Cambia de tema cuando el hilo se agotó, no cuando te dio ansiedad.
+Y si la lista no le calza a esta persona, bótala y escribe una que sí.
+
+Si presionas y esquivan dos veces, suéltalo. No hay tercera.`;
 }
+
 
 const MOVES: InterviewMove[] = [
   "open",
@@ -588,10 +622,17 @@ export async function classifyConsent(
       max_tokens: 150,
       system:
         "Someone was just asked whether their interview can appear publicly, or should stay " +
-        "private. Read their answer and decide whether they agreed to it being public. They " +
-        "may answer in English or Spanish, casually or indirectly. Agreement must be clear. " +
-        "If they hesitate, ask something back, set a condition, or say anything you are unsure " +
-        "about, onRecord is false.",
+        "private. Read their answer and decide whether they agreed to it being public.\n\n" +
+        "They may answer in English or Spanish, casually or indirectly, and speech-to-text " +
+        "may have mangled it. Read for meaning.\n" +
+        "Clear yes: yes, sure, go ahead, that's fine, no problem, sí, dale, claro, está bien, " +
+        "no hay problema, publícala, adelante.\n" +
+        "Clear no: no, rather not, keep it private, no gracias, prefiero que no, mejor privada, " +
+        "déjala privada.\n\n" +
+        "Set certain=true whenever the answer reads clearly either way — most answers do. " +
+        "Reserve certain=false for a genuine non-answer: a question back, a condition, or " +
+        "words that could go both ways. Being needlessly unsure leaves a person stuck at a " +
+        "question they already answered.",
       tools: [CONSENT_TOOL],
       tool_choice: { type: "tool", name: "consent" },
       messages: [{ role: "user", content: `They said: "${text}"` }],

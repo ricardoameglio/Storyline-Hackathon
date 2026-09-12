@@ -551,20 +551,28 @@ app.post("/api/interviews/:iid/consent-voice", async (req, res) => {
   if (!text) return res.status(400).json({ error: "Nothing heard." });
 
   const verdict = await classifyConsent(text, assignment?.language);
-  // Too vague to act on — ask again rather than guess about someone's privacy.
-  if (!verdict.certain) {
+
+  // Ask again only ONCE. Looping until a model feels certain leaves someone
+  // standing at a question they already answered, with no way out — and the
+  // safe default is right there: private.
+  const attempt = Number(req.body?.attempt) || 1;
+  if (!verdict.certain && attempt < 2) {
     return res.json({
       unclear: true,
+      attempt: attempt + 1,
       say: consentQuestion(assignment?.language),
     });
   }
 
   try {
-    recordConsent(interview, verdict.onRecord ? "on-the-record" : "private");
+    recordConsent(interview, verdict.certain && verdict.onRecord ? "on-the-record" : "private");
     store.putInterview(interview);
+    // The button path started the write-up and this one did not, which is why
+    // the PDF and the email never appeared.
+    kickOffContent(interview);
     res.json({
       ...interview,
-      say: consentThanks(verdict.onRecord, assignment?.language),
+      say: consentThanks(verdict.certain && verdict.onRecord, assignment?.language),
     });
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
