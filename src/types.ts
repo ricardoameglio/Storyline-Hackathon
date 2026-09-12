@@ -78,6 +78,12 @@ export interface Interview {
   phase?: InterviewPhase;
   startedAt?: number;
   endedAt?: number;
+  /** Missing consent on older records is always private. */
+  visibility?: "private" | "on-the-record";
+  consentAt?: number;
+  rawTranscript?: string;
+  cleanTranscript?: string;
+  transcriptCleanup?: "cleaned" | "fallback";
   turns: Turn[];
   /** beat -> covered */
   beatsCovered: Record<string, boolean>;
@@ -102,6 +108,7 @@ export interface GeneratedContent {
   corrections?: Correction[];
   /** Plain recap of what the conversation actually covered. */
   summary?: string;
+  keyTakeaways?: string[];
   nail?: string;
   contextGap?: string;
   pullQuotes?: { quote: string; why: string }[];

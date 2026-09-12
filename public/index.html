@@ -4,77 +4,107 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Prologue · Interviewer</title>
+<script src="/theme.js"></script>
 <link rel="stylesheet" href="/interviewer-studio.css" />
+<link rel="stylesheet" href="/product.css" />
 </head>
 <body>
 <a class="skip-link" href="#assignmentForm">Skip to the assignment</a>
 <div class="page-shell">
   <header class="masthead">
-    <a class="brand" href="/" aria-label="Prologue home"><span class="brand-icon" aria-hidden="true">p.</span>prologue<span class="brand-divider"></span><span class="product-label">INTERVIEWER</span></a>
-    <span class="masthead-note">GOOD QUESTIONS. REAL STORIES.</span>
+    <a class="brand" href="/" aria-label="Prologue home"><span class="brand-icon" aria-hidden="true">p.</span>prologue<span class="brand-divider"></span><span class="product-label">Interviewer</span></a>
+    <label class="theme-control" for="themeChoice">Theme<select id="themeChoice"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+
   </header>
   <main>
     <header class="page-intro">
-      <p class="eyebrow">FROM THE FIRST QUESTION TO THE FINAL WORD</p>
-      <h1>Give the interviewer<br>a story to <em>uncover.</em></h1>
-      <p class="intro-copy">Brief it like a journalist. Prologue leads the conversation<br class="wide-only"> and turns what you hear into something worth publishing.</p>
+      <h1>Start an interview</h1>
+      <p class="intro-copy">A conversation. A story worth sharing.</p>
     </header>
     <div class="workspace">
       <section class="assignment" aria-labelledby="assignmentTitle">
-        <div class="panel-heading"><h2 id="assignmentTitle">New assignment</h2><span class="section-caption">START WITH A LITTLE DIRECTION</span></div>
+        <div class="panel-heading"><h2 id="assignmentTitle">Interview setup</h2></div>
         <form id="assignmentForm">
-          <fieldset class="field-section">
-            <legend><span class="section-number">01</span> WHO</legend>
+    <fieldset class="setup-choice">
+      <legend>How would you like to start?</legend>
+      <div class="choice-grid">
+        <label class="choice-card"><input type="radio" name="setupMode" id="manualMode" value="manual" checked /><span><strong>Fill in the brief</strong><span>Add the person and story direction.</span></span></label>
+        <label class="choice-card"><input type="radio" name="setupMode" id="guidedMode" value="guided" /><span><strong>Let the interviewer ask</strong><span>Skip the brief. Start with a few questions.</span></span></label>
+      </div>
+    </fieldset>
+    <div id="guidedIntro" class="guided-intro" hidden><p>Create a room for yourself or a guest. The interviewer will collect the details.</p></div>
+    <fieldset id="personFields" class="field-section">
+            <legend><span class="section-number">01</span> Person</legend>
             <div class="person-row">
               <div class="field"><label for="subjectName">Who are we talking to? <span class="required">*</span></label><input id="subjectName" name="subjectName" placeholder="e.g. Marcus Webb" autocomplete="name" required /></div>
               <div class="field"><label for="subjectRole">Their role <span class="optional">Optional</span></label><input id="subjectRole" name="subjectRole" placeholder="e.g. Owner, founder, researcher" /></div>
             </div>
             <div class="field"><label for="company">Business <span class="optional">Optional</span></label><input id="company" name="company" placeholder="e.g. Red Bird Tacos" /></div>
           </fieldset>
-          <fieldset class="field-section story-direction">
-            <legend><span class="section-number">02</span> STORY DIRECTION</legend>
-            <div class="field"><label for="angle">Story angle <span class="optional">Optional</span></label><p id="anglePrompt" class="field-description">What should the interviewer try to uncover?</p><textarea id="angle" name="angle" rows="3" aria-describedby="anglePrompt angleHint" placeholder="Why does a line form outside a stall nobody advertises?"></textarea><p id="angleHint" class="field-hint">Leave it open, or give the conversation a thread to follow.</p></div>
+    <fieldset id="storyFields" class="field-section story-direction">
+            <legend><span class="section-number">02</span> Story</legend>
+            <div class="field"><label for="angle">Story angle <span class="optional">Optional</span></label><textarea id="angle" name="angle" rows="3" aria-describedby="angleHint" placeholder="What should the interview explore?"></textarea><p id="angleHint" class="field-hint">Leave blank for an open conversation.</p></div>
           </fieldset>
           <fieldset class="field-section interview-settings">
-            <legend><span class="section-number">03</span> INTERVIEW SETTINGS</legend>
+            <legend><span id="settingsNumber" class="section-number">03</span> Settings</legend>
             <div class="settings-row">
               <div class="field"><label for="durationMinutes">Minutes</label><input id="durationMinutes" name="durationMinutes" type="number" value="10" min="2" max="30" step="1" required /></div>
               <div class="field"><label for="maxQuestions">Max questions <span class="optional">Optional</span></label><input id="maxQuestions" name="maxQuestions" type="number" placeholder="No limit" min="2" max="40" step="1" /></div>
               <div class="field"><label for="language">Language</label><select id="language" name="language"><option value="en">English</option><option value="es">Español</option></select></div>
             </div>
           </fieldset>
-          <div class="start-action"><button id="go" type="submit">Create interview room <span aria-hidden="true">→</span></button><p id="configSummary" class="config-summary">10 min · English · No question limit</p></div>
+          <div class="start-action"><button id="go" type="submit">Create interview room <span aria-hidden="true">→</span></button><button id="quick" type="button" hidden>Create self-serve room <span aria-hidden="true">→</span></button><p id="configSummary" class="config-summary">10 min · English · No question limit</p></div>
         </form>
         <p id="formError" class="form-error" role="alert"></p>
         <p id="requestStatus" class="request-status" role="status"></p>
         <div id="out" class="room-output" aria-live="polite"></div>
-        <section class="remote-option" aria-labelledby="remoteTitle">
-          <div class="remote-icon" aria-hidden="true">↗</div><div><h3 id="remoteTitle">Let your guest take the lead.</h3><p>Send a self-serve room link. The interviewer will collect their name and what they do, then begin.</p><button class="text-button" id="quick" type="button">Open a self-serve room <span aria-hidden="true">→</span></button><p class="field-hint">Uses the interview settings above.</p></div>
-        </section>
       </section>
-      <aside class="wall-panel" aria-labelledby="wallTitle">
-        <div class="wall-heading"><p class="eyebrow">THE WALL</p><span class="archive-mark" aria-hidden="true">↗</span></div>
-        <h2 id="wallTitle">Your interviews become<br><em>source material.</em></h2>
-        <p class="wall-description">Conversations to revisit. Details to build on.</p>
-        <div class="stats" id="stats" aria-label="Interview statistics"></div>
-        <div class="archive-heading"><h3>On the record</h3><span id="wallStatus" role="status">Loading…</span></div>
-        <div id="wall" tabindex="0" role="region" aria-label="Saved interviews"></div>
+      <aside class="wall-panel" aria-labelledby="previewTitle">
         <section class="brief-preview" aria-labelledby="previewTitle">
-          <p class="eyebrow">YOUR NEXT CONVERSATION</p><h3 id="previewTitle">A story starts with a person.</h3><p id="previewPerson" class="preview-person" hidden></p><p id="previewAngle">Add a name and a direction. Your brief takes shape here.</p><p id="previewSettings" class="preview-settings">10 min · English · No question limit</p>
+          <p class="eyebrow">Your brief</p><h3 id="previewTitle">A story starts with a person.</h3><p id="previewPerson" class="preview-person" hidden></p><p id="previewAngle">Add a name to prepare your interview.</p><p id="previewSettings" class="preview-settings">10 min · English · No question limit</p>
         </section>
-        <section class="how-it-works" aria-labelledby="howTitle"><h3 id="howTitle">From a brief to a story.</h3><ol><li><span>01</span><div><strong>Brief</strong><p>Point us toward the story.</p></div></li><li><span>02</span><div><strong>Interview</strong><p>Ask, listen, follow up.</p></div></li><li><span>03</span><div><strong>Story</strong><p>Turn the conversation into copy.</p></div></li></ol></section>
+        <section class="how-it-works" aria-labelledby="howTitle"><h3 id="howTitle">How it works</h3><ol><li><span>01</span><div><strong>Set up</strong><p>Add a brief or skip it.</p></div></li><li><span>02</span><div><strong>Interview</strong><p>Answer by voice or text.</p></div></li><li><span>03</span><div><strong>Review</strong><p>Copy or download the story.</p></div></li></ol></section>
+        <section class="archive-section" aria-labelledby="wallTitle">
+        <h2 id="wallTitle">Interview archive</h2>
+        <div class="stats" id="stats" aria-label="Interview statistics"></div>
+        <details class="archive-disclosure">
+          <summary><span>On the record</span><span class="archive-toggle" aria-hidden="true"></span></summary>
+          <p id="wallStatus" role="status">Loading…</p>
+          <div id="wall" tabindex="0" role="region" aria-label="Saved interviews"></div>
+        </details>
+        </section>
       </aside>
     </div>
   </main>
-  <footer class="page-footer"><span>prologue</span><p>Every good story has a beginning.</p><a href="#assignmentForm">Back to the brief ↑</a></footer>
+  <footer class="page-footer"><span>prologue</span><a href="#assignmentForm">Back to the brief ↑</a></footer>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
+let setupMode = "manual";
+function setSetupMode(mode) {
+  if ($("go").disabled) return;
+  setupMode = mode;
+  const guided = mode === "guided";
+  $("manualMode").checked = !guided;
+  $("guidedMode").checked = guided;
+  for (const id of ["personFields", "storyFields"]) {
+    $(id).hidden = $(id).disabled = guided;
+  }
+  $("guidedIntro").hidden = !guided;
+  $("settingsNumber").textContent = guided ? "01" : "03";
+  $("go").hidden = guided;
+  $("quick").hidden = !guided;
+  $("formError").textContent = "";
+  updateBrief();
+}
+$("manualMode").addEventListener("change", () => setSetupMode("manual"));
+$("guidedMode").addEventListener("change", () => setSetupMode("guided"));
 
 $("assignmentForm").addEventListener("submit", (event) => {
   event.preventDefault();
-  createAssignment();
+  if (setupMode === "guided") $("quick").onclick();
+  else createAssignment();
 });
 
 async function createAssignment() {
@@ -150,14 +180,14 @@ async function wall() {
     // /api/wall only returns completed interviews. Do not invent roles or angles.
     $("wall").innerHTML = w.rows.length
       ? w.rows.map((r) => `<article class="interview-item">
-          <div class="item-heading"><span class="item-label">INTERVIEW</span><span class="completion">Completed</span></div>
+          <div class="item-heading"><span class="item-label">Interview</span><span class="completion">Completed</span></div>
           <h3>${esc(r.subject || "Untitled interview")}</h3>
           ${r.company ? `<p class="item-company">${esc(r.company)}</p>` : ""}
           ${r.nail ? `<p class="item-nail">${esc(r.nail)}</p>` : ""}
           ${r.topQuote ? `<blockquote>“${esc(r.topQuote)}”</blockquote>` : ""}
           <div class="item-footer"><span>${esc(r.minutes)} min <span aria-hidden="true">·</span> ${esc(r.questions)} questions</span><a href="/i/${encodeURIComponent(r.interviewId)}?operator=1">Open interview <span aria-hidden="true">↗</span></a></div>
         </article>`).join("")
-      : '<div class="archive-empty"><span aria-hidden="true">“</span><h3>Your first source starts here.</h3><p>Completed interviews will appear here, ready to revisit.</p></div>';
+      : '<div class="archive-empty"><h3>No interviews yet</h3><p>Completed interviews will appear here.</p></div>';
   } catch {
     $("wallStatus").textContent = "Unable to refresh · retrying shortly";
   }
@@ -171,9 +201,10 @@ function validSettings() {
 
 function setCreating(active, quick) {
   $("go").disabled = $("quick").disabled = active;
+  $("manualMode").disabled = $("guidedMode").disabled = active;
   $("assignmentForm").setAttribute("aria-busy", String(active));
   $("go").innerHTML = active && !quick ? 'Creating your room…' : 'Create interview room <span aria-hidden="true">→</span>';
-  $("quick").innerHTML = active && quick ? 'Creating your room…' : 'Open a self-serve room <span aria-hidden="true">→</span>';
+  $("quick").innerHTML = active && quick ? 'Creating your room…' : 'Create self-serve room <span aria-hidden="true">→</span>';
   if (active) {
     $("formError").textContent = "";
     $("requestStatus").textContent = "Preparing a room for your conversation…";
@@ -185,7 +216,7 @@ function showRoom(interview, selfServe) {
   if (!["http:", "https:"].includes(url.protocol)) throw new Error("The room link is invalid. Please try again.");
   const roomUrl = url.href;
   url.searchParams.set("operator", "1");
-  $("out").innerHTML = `<section class="share-room" aria-label="Your interview room"><div><p class="eyebrow">READY TO SHARE</p><h3>${selfServe ? "Your self-serve room is ready." : "Your interview room is ready."}</h3><a class="room-link" id="roomLink" href="${esc(roomUrl)}" target="_blank" rel="noopener">${esc(roomUrl)}</a><div class="share-actions"><button type="button" id="copyRoom">Copy link</button><a href="${esc(url.href)}" target="_blank" rel="noopener">Operator view ↗</a></div><p class="field-hint" id="copyStatus" role="status"></p></div><div id="qr" aria-label="Room QR code"></div></section>`;
+  $("out").innerHTML = `<section class="share-room" aria-label="Your interview room"><div><p class="eyebrow">READY TO SHARE</p><h3>${selfServe ? "Your self-serve room is ready." : "Your interview room is ready."}</h3><a class="room-link" id="roomLink" href="${esc(roomUrl)}" target="_blank" rel="noopener">${esc(roomUrl)}</a><div class="share-actions"><a class="open-room" id="openRoom" href="${esc(roomUrl)}" target="_blank" rel="noopener">Open interview ↗</a><button type="button" id="copyRoom">Copy link</button><a href="${esc(url.href)}" target="_blank" rel="noopener">Operator view ↗</a></div><p class="field-hint" id="copyStatus" role="status"></p></div><div id="qr" aria-label="Room QR code"></div></section>`;
   if (window.QRCode) {
     try { new QRCode($("qr"), { text: roomUrl, width: 112, height: 112, colorDark: "#272922", colorLight: "#fcfbf8" }); }
     catch { $("copyStatus").textContent = "QR unavailable. You can still share the link."; }
@@ -195,7 +226,7 @@ function showRoom(interview, selfServe) {
     catch { $("copyStatus").textContent = "Select and copy the link above."; }
   };
   $("requestStatus").textContent = "Room created.";
-  $("roomLink").focus();
+  $("openRoom").focus();
 }
 
 function updateBrief() {
@@ -213,10 +244,16 @@ function updateBrief() {
     validQuestions ? (questionValue ? `Up to ${questionValue} questions` : "No question limit") : "Choose 2–40 questions",
   ].join(" · ");
   $("configSummary").textContent = $("previewSettings").textContent = summary;
+  if (setupMode === "guided") {
+    $("previewTitle").textContent = "Your story starts in the room.";
+    $("previewPerson").hidden = true;
+    $("previewAngle").textContent = "Start with your name and what you do. The interviewer takes it from there.";
+    return;
+  }
   $("previewTitle").textContent = name ? `A conversation with ${name}.` : "A story starts with a person.";
   $("previewPerson").textContent = [role, business].filter(Boolean).join(" · ");
   $("previewPerson").hidden = !role && !business;
-  $("previewAngle").textContent = angle || (name ? "An open conversation. Let the interviewer discover the story." : "Add a name and a direction. Your brief takes shape here.");
+  $("previewAngle").textContent = angle || (name ? "An open conversation." : "Add a name to prepare your interview.");
 }
 $("assignmentForm").addEventListener("input", updateBrief);
 $("assignmentForm").addEventListener("change", updateBrief);

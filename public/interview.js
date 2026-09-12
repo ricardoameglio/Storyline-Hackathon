@@ -31,18 +31,18 @@ const STRINGS = {
     introKnown: (m, about) => `About ${m} minutes on ${about}.`,
     aboutFallback: "what you do",
     start: "Start the interview",
-    talk: "Talk to it", type: "Type instead", talkInstead: "Talk instead",
+    talk: "Voice", type: "Type instead", talkInstead: "Use voice",
     send: "Send", done: "Done answering", again: "Say it again", endEarly: "End early",
     listening: "Listening…", typeHere: "Type your answer…",
-    hintVoice: "Just talk. It'll wait for you to finish.",
+    hintVoice: "Answers send after a pause. You can also finish manually.",
     hintText: "Type your answer, then press Send.",
     micHint: "Works best in Chrome. Your mic stays on only while you're answering.",
-    textHint: "You'll type your answers. Nothing is recorded.",
+    textHint: "Answer by typing. Your microphone stays off.",
     thinking: "Thinking…",
     thanks: (n) => (n ? `Thank you, ${n}.` : "Thank you."),
     stats: (q, m) => `${q} questions over ${m} minute${m === 1 ? "" : "s"}.`,
-    writing: "Writing your post now — about twenty seconds.",
-    hereItIs: "Here it is. Yours to keep.",
+    writing: "Preparing your story…",
+    hereItIs: "Your story is ready.",
     stillWriting: "Still writing — this is taking longer than usual.",
     nothing: "Nothing was recorded, so there's nothing to write up.",
     failed: "Something went wrong writing this up.",
@@ -73,12 +73,12 @@ const STRINGS = {
     hintVoice: "Habla normal. Espera a que termines.",
     hintText: "Escribe tu respuesta y dale Enviar.",
     micHint: "Funciona mejor en Chrome. El micrófono solo se activa mientras respondes.",
-    textHint: "Vas a escribir tus respuestas. No se graba nada.",
+    textHint: "Responde por escrito. El micrófono permanece apagado.",
     thinking: "Pensando…",
     thanks: (n) => (n ? `Gracias, ${n}.` : "Gracias."),
     stats: (q, m) => `${q} preguntas en ${m} minuto${m === 1 ? "" : "s"}.`,
-    writing: "Estoy escribiendo tu publicación — unos veinte segundos.",
-    hereItIs: "Aquí está. Es tuya.",
+    writing: "Preparando tu historia…",
+    hereItIs: "Tu historia está lista.",
     stillWriting: "Todavía escribiendo — está tardando más de lo normal.",
     nothing: "No quedó nada grabado, así que no hay nada que redactar.",
     failed: "Algo salió mal al redactar esto.",
@@ -112,6 +112,26 @@ let interimText = "";
 let busy = false;
 let audio = null;
 let questionCount = 0;
+let completedInterview = null;
+let resultText = "";
+
+function presentState(state) {
+  el.live.dataset.state = state;
+  const labels = language === "es"
+    ? { ready: "Listo para responder", listening: "Escuchando", speaking: "Entrevistador hablando", thinking: "Pensando", starting: "Conectando", error: "Necesita atención", complete: "Entrevista completa" }
+    : { ready: "Ready for your answer", listening: "Listening", speaking: "Interviewer speaking", thinking: "Thinking", starting: "Connecting", error: "Needs attention", complete: "Interview complete" };
+  if ($("sessionState")) $("sessionState").textContent = labels[state] || labels.ready;
+  if ($("questionProgress")) $("questionProgress").textContent = phase === "intake"
+    ? (language === "es" ? "Presentación" : "Getting acquainted")
+    : (questionCount ? (language === "es" ? `Pregunta ${questionCount}` : `Question ${questionCount}`) : "");
+  const waiting = ["starting", "thinking", "speaking"].includes(state);
+  el.next.disabled = el.repeat.disabled = el.swap.disabled = el.finish.disabled = waiting;
+}
+
+function processing(active) {
+  if ($("processingTrack")) $("processingTrack").hidden = !active;
+  el.copy?.setAttribute("aria-busy", String(active));
+}
 
 if (OPERATOR) el.logBox.hidden = false;
 
@@ -130,7 +150,7 @@ if (OPERATOR) el.logBox.hidden = false;
     phase = data.phase || "interview";
     setMode(data.mode === "text" ? "text" : "voice", false);
 
-    if (data.status === "finished") return showEnd();
+    if (data.status === "finished") return showEnd(data);
 
     const mins = assignment?.durationMinutes ?? 10;
     if (phase === "intake") {
@@ -150,6 +170,9 @@ if (OPERATOR) el.logBox.hidden = false;
 })();
 
 function applyStaticStrings() {
+  $("answerLabel").textContent = language === "es" ? "Tu respuesta" : "Your answer";
+  $("transcriptLabel").textContent = language === "es" ? "Transcripción" : "Transcript";
+  el.typedText?.setAttribute("aria-label", language === "es" ? "Tu respuesta" : "Your answer");
   if (el.start) el.start.textContent = T.start;
   if (el.modeVoice) el.modeVoice.textContent = T.talk;
   if (el.modeText) el.modeText.textContent = T.type;
@@ -169,6 +192,8 @@ function setMode(next, tellServer = true) {
 
   el.modeVoice?.classList.toggle("on", !isText);
   el.modeText?.classList.toggle("on", isText);
+  el.modeVoice?.setAttribute("aria-pressed", String(!isText));
+  el.modeText?.setAttribute("aria-pressed", String(isText));
   if (el.typed) el.typed.hidden = !isText;
   if (el.heard) el.heard.hidden = isText;
   if (el.repeat) el.repeat.hidden = isText;
@@ -182,6 +207,7 @@ function setMode(next, tellServer = true) {
   }
 
   if (isText) stopListening();
+  if (!el.live.hidden && !busy) presentState(isText ? "ready" : "listening");
   if (tellServer) {
     fetch(`/api/interviews/${interviewId}/mode`, {
       method: "POST",
@@ -233,6 +259,7 @@ function buildRecognizer() {
     } else {
       el.err.textContent = `${ev.error} — ${T.noSpeech}`;
     }
+    presentState("error");
   };
 
   r.onend = () => { if (listening) { try { r.start(); } catch {} } };
@@ -250,6 +277,7 @@ function startListening() {
     return;
   }
   listening = true;
+  presentState("listening");
   el.dot.classList.remove("idle");
   recog = recog || buildRecognizer();
   try { recog.start(); } catch {}
@@ -289,6 +317,7 @@ function bumpLevel() {
 
 async function say(text) {
   stopListening();
+  presentState("speaking");
   el.question.textContent = text;
   try {
     const r = await fetch("/api/tts", {
@@ -328,6 +357,7 @@ el.start.onclick = async () => {
   el.start.disabled = true;
   el.intro.hidden = true;
   el.live.hidden = false;
+  presentState("starting");
   startedAt = Date.now();
   tickClock();
 
@@ -345,15 +375,30 @@ el.start.onclick = async () => {
     afterQuestion();
   } catch (e) {
     el.err.textContent = e.message;
+    presentState("error");
+    el.question.textContent = language === "es" ? "No se pudo iniciar la entrevista." : "The interview could not start.";
   }
 };
 
 el.next.onclick = () => submitAnswer();
 el.repeat.onclick = () => say(el.question.textContent).then(() => afterQuestion());
 el.finish.onclick = async () => {
+  if (busy) return;
+  busy = true;
+  el.finish.disabled = true;
   stopListening();
-  await fetch(`/api/interviews/${interviewId}/end`, { method: "POST" });
-  showEnd();
+  try {
+    const text = mode === "text" ? (el.typedText?.value || "").trim() : (finalText + " " + interimText).trim();
+    const r = await fetch(`/api/interviews/${interviewId}/end`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || T.failed);
+    showEnd(data);
+  } catch (e) {
+    el.err.textContent = e.message;
+    presentState("error");
+  } finally { busy = false; el.finish.disabled = false; }
 };
 
 el.typedText && el.typedText.addEventListener("keydown", (e) => {
@@ -362,6 +407,7 @@ el.typedText && el.typedText.addEventListener("keydown", (e) => {
 
 /** After the interviewer finishes speaking: listen, or hand them the keyboard. */
 function afterQuestion() {
+  presentState(mode === "text" ? "ready" : "listening");
   if (mode === "text") el.typedText?.focus();
   else startListening();
 }
@@ -380,6 +426,7 @@ async function submitAnswer() {
   }
 
   busy = true;
+  presentState("thinking");
   el.next.disabled = true;
   el.hint.textContent = T.thinking;
   logTurn("a", text);
@@ -408,29 +455,131 @@ async function submitAnswer() {
     if (data.sayFirst) await say(data.sayFirst);
     await say(q.question);
 
-    if (data.interview.status === "finished") return showEnd();
+    if (data.interview.status === "finished") return showEnd(data.interview);
     afterQuestion();
   } catch (e) {
     busy = false;
     el.next.disabled = false;
     el.err.textContent = e.message;
     el.hint.textContent = T.tryAgain;
+    presentState("error");
   }
 }
 
-function showEnd() {
+function showEnd(data = completedInterview) {
+  completedInterview = data;
   stopListening();
+  if (audio) audio.pause();
+  window.speechSynthesis?.cancel();
+  presentState("complete");
   el.intro.hidden = true;
   el.live.hidden = true;
+  if (!data?.consentAt) {
+    el.end.hidden = true;
+    $("consent").hidden = false;
+    if (language === "es") {
+      $("consentEyebrow").textContent = "Una última cosa";
+      $("consentTitle").textContent = "Antes de terminar, ¿prefieres que esta conversación sea privada o que aparezca en el archivo público?";
+      $("choosePrivate").innerHTML = "<strong>Privada</strong><span>No aparecerá en The Wall. Quienes tengan el enlace aún podrán acceder.</span>";
+      $("chooseRecord").innerHTML = "<strong>En el archivo público</strong><span>Permite que esta entrevista aparezca en The Wall, nuestro archivo visible.</span>";
+    }
+    $("consentTitle").focus();
+    return;
+  }
+  $("consent").hidden = true;
+  processing(true);
   el.end.hidden = false;
+  const onRecord = data.visibility === "on-the-record";
+  $("visibilityLabel").textContent = language === "es" ? (onRecord ? "En el archivo público" : "Privada") : (onRecord ? "On the Record" : "Private");
+  $("visibilityHint").textContent = language === "es"
+    ? (onRecord ? "Esta entrevista puede aparecer en The Wall." : "Fuera de The Wall. Quienes tengan el enlace aún pueden acceder.")
+    : (onRecord ? "This interview can appear on The Wall." : "Kept off The Wall. People with this interview link can still access it.");
+  $("viewWall").hidden = !onRecord;
+  $("completeLabel").textContent = language === "es" ? "Entrevista completa" : "Interview complete";
+  $("anotherInterview").textContent = language === "es" ? "Empezar otra entrevista" : "Start another interview";
+  $("viewWall").textContent = language === "es" ? "Ver en The Wall" : "View on The Wall";
   const first = (assignment?.subjectName || "").split(" ")[0];
   el.thanks.textContent = T.thanks(first);
-  const mins = startedAt ? Math.round((Date.now() - startedAt) / 60000) : null;
-  el.endStats.textContent = mins != null ? T.stats(questionCount, mins) : "";
+  const mins = data.startedAt ? Math.max(0, Math.round(((data.endedAt || Date.now()) - data.startedAt) / 60000)) : 0;
+  questionCount = (data.turns || []).filter(t => t.speaker === "interviewer").length;
+  el.endStats.textContent = mins === 0
+    ? (language === "es" ? `${questionCount} preguntas en menos de un minuto.` : `${questionCount} questions in under a minute.`)
+    : T.stats(questionCount, mins);
+  copyTries = 0;
   waitForCopy();
 }
 
-el.pdf && (el.pdf.onclick = () => window.print());
+async function chooseVisibility(visibility) {
+  $("choosePrivate").disabled = $("chooseRecord").disabled = true;
+  $("consentError").textContent = "";
+  $("consentStatus").textContent = language === "es" ? "Guardando tu elección…" : "Saving your choice…";
+  try {
+    const r = await fetch(`/api/interviews/${interviewId}/consent`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ visibility }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || T.failed);
+    showEnd(data);
+  } catch (e) { $("consentError").textContent = e.message; }
+  finally {
+    $("consentStatus").textContent = "";
+    $("choosePrivate").disabled = $("chooseRecord").disabled = false;
+  }
+}
+$("choosePrivate").onclick = () => chooseVisibility("private");
+$("chooseRecord").onclick = () => chooseVisibility("on-the-record");
+
+el.pdf && (el.pdf.onclick = async () => {
+  el.pdf.disabled = true;
+  $("actionStatus").textContent = language === "es" ? "Preparando PDF…" : "Preparing PDF…";
+  try {
+    const r = await fetch(`/api/interviews/${interviewId}/pdf`);
+    if (!r.ok) throw new Error((await r.json()).error || T.failed);
+    const url = URL.createObjectURL(await r.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `prologue-${interviewId}.pdf`;
+    document.body.appendChild(link);
+    link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    $("actionStatus").textContent = language === "es" ? "PDF descargado." : "PDF downloaded.";
+  } catch (e) { $("actionStatus").textContent = e.message; }
+  finally { el.pdf.disabled = false; }
+});
+
+$("copySummary").onclick = async () => {
+  try {
+    if (!navigator.clipboard || !resultText) throw new Error(language === "es" ? "No se pudo copiar. Selecciona el texto y cópialo manualmente." : "Could not copy. Select the summary text and copy it manually.");
+    await navigator.clipboard.writeText(resultText);
+    $("copySummary").textContent = T.copied;
+    $("actionStatus").textContent = T.copied;
+    setTimeout(() => { $("copySummary").textContent = language === "es" ? "Copiar resumen" : "Copy summary"; }, 1800);
+  } catch (e) { $("actionStatus").textContent = e.message; }
+};
+
+$("emailToggle").onclick = () => {
+  const form = $("emailForm");
+  form.hidden = !form.hidden;
+  $("emailToggle").setAttribute("aria-expanded", String(!form.hidden));
+  if (!form.hidden) $("summaryEmail").focus();
+};
+
+$("emailForm").onsubmit = async event => {
+  event.preventDefault();
+  if (!$("emailForm").reportValidity() || $("sendEmail").disabled) return;
+  $("sendEmail").disabled = true;
+  $("emailStatus").textContent = language === "es" ? "Enviando…" : "Sending…";
+  try {
+    const r = await fetch(`/api/interviews/${interviewId}/email`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: $("summaryEmail").value.trim() }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.sent) throw new Error(data.error || T.failed);
+    $("emailStatus").textContent = language === "es" ? "Resumen enviado. Revisa tu bandeja de entrada." : "Summary sent. Check your inbox.";
+  } catch (e) { $("emailStatus").textContent = e.message; }
+  finally { $("sendEmail").disabled = !completedInterview?.emailEnabled; }
+};
 
 /* The payoff. The subject is still standing there — show them their post. */
 let copyTries = 0;
@@ -439,11 +588,15 @@ async function waitForCopy() {
   try {
     const r = await fetch(`/api/interviews/${interviewId}`);
     const data = await r.json();
+    if (!r.ok) throw new Error(data.error || T.failed);
     if (data.assignment) assignment = data.assignment;
+    completedInterview = data;
+    resultText = data.summaryText || "";
     const c = data.content;
 
     if (c && c.error) return failed(c.error);
     if (c && (c.summary || c.instagramCaption || c.nail)) {
+      processing(false);
       if (el.writing) el.writing.textContent = T.hereItIs;
       if (el.endBar) el.endBar.hidden = false;
       renderCopy(el.copy, c);
@@ -455,6 +608,7 @@ async function waitForCopy() {
       (t) => t.speaker === "subject" && (t.phase || "interview") === "interview",
     );
     if (!answered && data.status === "finished") {
+      processing(false);
       if (el.writing) el.writing.textContent = T.nothing;
       return;
     }
@@ -466,6 +620,7 @@ async function waitForCopy() {
 
 /** Say so, and offer the retry. Silence is the worst possible answer here. */
 function failed(detail) {
+  processing(false);
   if (el.writing) el.writing.textContent = detail ? `${T.failed} (${detail})` : T.stillWriting;
   if (!el.copy || el.copy.querySelector("[data-retry]")) return;
   const b = document.createElement("button");
@@ -474,14 +629,16 @@ function failed(detail) {
   b.textContent = T.retry;
   b.onclick = async () => {
     b.disabled = true;
+    processing(true);
     if (el.writing) el.writing.textContent = T.writing;
     try {
       const r = await fetch(`/api/interviews/${interviewId}/content?force=1`, { method: "POST" });
       const c = await r.json();
       if (!r.ok || c.error) throw new Error(c.error || "failed");
-      if (el.endBar) el.endBar.hidden = false;
-      renderCopy(el.copy, c);
+      copyTries = 0;
+      await waitForCopy();
     } catch (e) {
+      processing(false);
       b.disabled = false;
       if (el.writing) el.writing.textContent = `${T.failed} (${e.message})`;
     }
@@ -490,13 +647,22 @@ function failed(detail) {
 }
 
 function renderCopy(box, c) {
+  processing(false);
+  if (el.writing) el.writing.textContent = T.hereItIs;
+  el.thanks.textContent = c.nail || T.thanks((assignment?.subjectName || "").split(" ")[0]);
+  $("copySummary").textContent = language === "es" ? "Copiar resumen" : "Copy summary";
+  $("emailToggle").textContent = language === "es" ? "Enviar por email" : "Email summary";
+  $("emailLabel").textContent = language === "es" ? "Envía tu resumen a" : "Send your summary to";
+  $("sendEmail").textContent = language === "es" ? "Enviar resumen" : "Send summary";
+  $("sendEmail").disabled = !completedInterview?.emailEnabled;
+  $("summaryEmail").disabled = !completedInterview?.emailEnabled;
+  if (!completedInterview?.emailEnabled) $("emailStatus").textContent = language === "es"
+    ? "El email aún no está configurado. Puedes copiar el resumen o descargar el PDF."
+    : "Email isn’t set up yet. You can copy the summary or download the PDF.";
   const blocks = [];
   if (c.summary)
     blocks.push(`<div class="out"><h3>${T.hSummary}</h3><p>${escapeHtml(c.summary)}</p></div>`);
-  if (c.nail)
-    blocks.push(`<div class="out"><h3>${T.hLine}</h3><p class="nail">${escapeHtml(c.nail)}</p></div>`);
-  if (c.instagramCaption) blocks.push(sect("Instagram", c.instagramCaption));
-  if (c.linkedinPost) blocks.push(sect("LinkedIn", c.linkedinPost));
+  if (c.keyTakeaways?.length) blocks.push(`<div class="out"><h3>${language === "es" ? "Ideas clave" : "Key takeaways"}</h3><ol>${c.keyTakeaways.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ol></div>`);
   if (c.pullQuotes?.length) {
     blocks.push(
       `<div class="out"><h3>${T.hStood}</h3>` +
@@ -504,15 +670,27 @@ function renderCopy(box, c) {
         `</div>`,
     );
   }
+  if (c.blogDraft) blocks.push(sect(language === "es" ? "Historia" : "Full story", c.blogDraft));
+  if (c.instagramCaption) blocks.push(sect("Instagram", c.instagramCaption));
+  if (c.linkedinPost) blocks.push(sect("LinkedIn", c.linkedinPost));
+  if (c.xThread?.length) blocks.push(sect("X", c.xThread.join("\n\n")));
+  if (c.podcastSegment) blocks.push(sect("Podcast", c.podcastSegment));
+  if (completedInterview?.cleanTranscript) blocks.push(`<details><summary>${language === "es" ? "Leer transcripción" : "Read transcript"}</summary><p class="readable-transcript">${escapeHtml(completedInterview.cleanTranscript)}</p></details>`);
+  if (OPERATOR && completedInterview?.rawTranscript) blocks.push(`<details><summary>${language === "es" ? "Transcripción original" : "Original transcript"}</summary><p class="readable-transcript">${escapeHtml(completedInterview.rawTranscript)}</p></details>`);
   if (c.corrections) {
     blocks.push(`<p class="checked">${T.checked(c.corrections.length)}</p>`);
   }
   box.innerHTML = blocks.join("");
 
   box.querySelectorAll("[data-copy]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      navigator.clipboard?.writeText(btn.getAttribute("data-copy") || "");
-      btn.textContent = T.copied;
+    btn.addEventListener("click", async () => {
+      try {
+        if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+        await navigator.clipboard.writeText(btn.getAttribute("data-copy") || "");
+        btn.textContent = T.copied;
+      } catch {
+        btn.textContent = language === "es" ? "Selecciona y copia el texto" : "Select and copy the text";
+      }
       setTimeout(() => (btn.textContent = T.copy), 1600);
     });
   });
@@ -528,7 +706,7 @@ function sect(title, text) {
 
 function tickClock() {
   setInterval(() => {
-    if (!startedAt) return;
+    if (!startedAt || completedInterview) return;
     const s = Math.floor((Date.now() - startedAt) / 1000);
     el.clock.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   }, 1000);

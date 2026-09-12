@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Interview</title>
+<script src="/theme.js"></script>
 <style>
   :root{
     --paper:#F4F1EA; --ink:#17150F; --muted:#6B6455;
@@ -107,12 +108,15 @@
     .checked{display:block !important; color:#666}
   }
 </style>
+<link rel="stylesheet" href="/product.css" />
+<link rel="stylesheet" href="/completion.css" />
 </head>
-<body>
+<body class="interview-page">
 <div class="wrap">
   <header>
-    <span class="brand">Prologue · Discovery</span>
+    <a class="room-brand" href="/">prologue <span>Interview</span></a>
     <span class="clock"><span class="dot idle" id="dot"></span><span id="clock">--:--</span></span>
+    <label class="theme-control" for="themeChoice">Theme<select id="themeChoice"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
   </header>
 
   <!-- start -->
@@ -133,10 +137,12 @@
 
   <!-- live -->
   <section id="live" hidden>
-    <p class="question" id="question"></p>
+    <div class="session-meta"><p id="sessionState" role="status" aria-live="polite">Ready</p><span id="questionProgress"></span></div>
+    <h1 class="question" id="question" aria-live="polite"></h1>
     <div class="heard" id="heard"><span class="ph">Listening…</span></div>
     <div class="level"><i id="lvl"></i></div>
     <div id="typed" hidden>
+      <label for="typedText" id="answerLabel">Your answer</label>
       <textarea id="typedText" rows="3" placeholder="Type your answer…"></textarea>
     </div>
 
@@ -147,24 +153,48 @@
       <button class="ghost" id="finish">End early</button>
     </div>
     <p class="hint" id="hint">Just talk. It'll wait for you to finish.</p>
-    <p class="err" id="err"></p>
-    <div class="log" id="logBox" hidden>
-      <h2>Transcript</h2>
+    <p class="err" id="err" role="alert"></p>
+    <details class="log" id="logBox" hidden>
+      <summary id="transcriptLabel">Transcript</summary>
       <div id="log"></div>
+    </details>
+  </section>
+
+  <section id="consent" hidden aria-labelledby="consentTitle">
+    <p class="eyebrow" id="consentEyebrow">One last thing</p>
+    <h1 id="consentTitle" tabindex="-1">Before we wrap up — should this conversation stay private, or go On the Record?</h1>
+    <div class="consent-options">
+      <button class="ghost consent-choice" id="choosePrivate"><strong>Private</strong><span>Keep it off The Wall. People with this interview link can still access it.</span></button>
+      <button class="ghost consent-choice" id="chooseRecord"><strong>On the Record</strong><span>Allow this interview to appear on The Wall, our visible interview archive.</span></button>
     </div>
+    <p id="consentStatus" class="hint" role="status"></p>
+    <p id="consentError" class="err" role="alert"></p>
   </section>
 
   <!-- done -->
   <section id="end" hidden>
     <div class="done">
+      <p class="eyebrow" id="completeLabel">Interview complete</p>
       <h2 id="thanks">Thank you.</h2>
       <p class="hint" id="endStats"></p>
-      <p class="hint" id="writing">Writing your post now — about twenty seconds.</p>
+      <p id="visibilityLabel" class="visibility-label"></p>
+      <p id="visibilityHint" class="hint"></p>
+      <p class="hint" id="writing" role="status">Preparing your story…</p>
+      <div class="processing-track" id="processingTrack" aria-hidden="true"><i></i></div>
       <div class="bar" id="endBar" hidden>
-        <button id="pdf">Download as PDF</button>
+        <button id="emailToggle" aria-expanded="false" aria-controls="emailForm">Email summary</button>
+        <button class="ghost" id="pdf">Download PDF</button>
+        <button class="ghost" id="copySummary">Copy summary</button>
       </div>
+      <form id="emailForm" hidden>
+        <label for="summaryEmail" id="emailLabel">Send your summary to</label>
+        <div class="email-row"><input id="summaryEmail" name="email" type="email" autocomplete="email" placeholder="email@example.com" maxlength="254" required /><button id="sendEmail" type="submit">Send summary</button></div>
+        <p id="emailStatus" class="hint" role="status"></p>
+      </form>
+      <p id="actionStatus" class="hint" role="status"></p>
     </div>
     <div id="copy"></div>
+    <div class="bar secondary-actions"><a href="/" id="anotherInterview">Start another interview</a><a href="/#wallTitle" id="viewWall" hidden>View on The Wall</a></div>
   </section>
 </div>
 

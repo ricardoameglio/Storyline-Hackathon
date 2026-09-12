@@ -15,7 +15,8 @@ async function studio(handler, wallData = empty) {
       value: "", textContent: "", innerHTML: "", hidden: false, disabled: false,
       validity: { valid: true }, selectedOptions: [{ textContent: "English" }],
       reportValidity() { return this.validity.valid; },
-      addEventListener() {}, setAttribute() {}, focus() {},
+      listeners: {},
+      addEventListener(type, handler) { this.listeners[type] = handler; }, setAttribute() {}, focus() {},
     });
     return elements.get(id);
   };
@@ -59,6 +60,30 @@ test("self-serve works without a name and preserves selected settings", async ()
   app.get("language").value = "es";
   await app.get("quick").onclick();
   assert.deepEqual(app.calls, [{ url: "/api/quickstart", body: { durationMinutes: 15, language: "es" } }]);
+});
+
+test("choosing guided setup skips the brief and switching back restores the draft", async () => {
+  const app = await studio(() => response({ url: "http://localhost:8787/i/quick" }));
+  app.get("subjectName").value = "Alex";
+  app.get("angle").value = "A new beginning";
+  app.get("durationMinutes").value = "15";
+  app.get("guidedMode").listeners.change();
+  assert.equal(app.get("personFields").disabled, true);
+  assert.equal(app.get("storyFields").hidden, true);
+  assert.equal(app.get("quick").hidden, false);
+  assert.equal(app.get("go").hidden, true);
+  assert.match(app.get("previewTitle").textContent, /starts in the room/);
+  app.get("assignmentForm").listeners.submit({ preventDefault() {} });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(app.calls, [{ url: "/api/quickstart", body: { durationMinutes: 15, language: "en" } }]);
+  assert.match(app.get("out").innerHTML, /Open interview/);
+  app.get("manualMode").listeners.change();
+  assert.equal(app.get("personFields").disabled, false);
+  assert.equal(app.get("storyFields").hidden, false);
+  assert.equal(app.get("subjectName").value, "Alex");
+  assert.equal(app.get("angle").value, "A new beginning");
+  assert.equal(app.get("durationMinutes").value, "15");
+  assert.match(app.get("previewTitle").textContent, /Alex/);
 });
 
 test("invalid form and invalid self-serve settings do not send requests", async () => {
